@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בוחן מונחים במטאורולוגיה</title>
+    <!-- טעינת Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- טעינת גופן Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* הגדרת גופן ברירת מחדל */
+        body {
+            font-family: 'Rubik', 'Inter', sans-serif;
+        }
+
+        /* סגנון לספינר טעינה */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white rounded-lg shadow-2xl p-6 md:p-8 w-full max-w-2xl mx-auto">
+        
+        <!-- כותרת ומונה שאלות -->
+        <div class="flex justify-between items-center mb-6 pb-4 border-b">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">בוחן מונחים במטאורולוגיה</h1>
+            <div id="question-counter" class="text-lg font-semibold text-gray-600 bg-gray-100 px-3 py-1 rounded-full"></div>
+        </div>
+
+        <!-- אזור השאלה -->
+        <div id="quiz-container">
+            <h2 class="text-xl font-semibold text-blue-700 mb-4">הגדר/י את המונח:</h2>
+            <p id="term" class="text-3xl font-bold text-gray-900 mb-5"></p>
+
+            <!-- שדה תשובה -->
+            <textarea id="user-answer"
+                      class="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                      placeholder="הקלד/י את הגדרתך כאן..."></textarea>
+
+            <!-- כפתור הגשה -->
+            <button id="submit-btn"
+                    onclick="submitAnswer()"
+                    class="w-full mt-4 bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-300 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                בדוק את תשובתי
+            </button>
+
+            <!-- אזור משוב וטעינה -->
+            <div id="feedback-container" class="mt-4 min-h-[50px] p-3 bg-gray-50 rounded-lg hidden flex items-center justify-center">
+                <div id="loader" class="loader hidden"></div>
+                <p id="feedback" class="text-md font-medium text-gray-700"></p>
+            </div>
+
+            <!-- אזור תשובה נכונה (מוסתר) -->
+            <div id="correct-answer-container" class="mt-6 hidden border-t pt-4">
+                <button id="show-answer-btn"
+                        onclick="showAnswer()"
+                        class="text-sm text-blue-600 hover:underline mb-3 font-medium">
+                    הצג/הסתר תשובה מלאה
+                </button>
+                
+                <div id="correct-answer" class="hidden bg-green-50 border border-green-200 p-4 rounded-lg">
+                    <h3 class="text-lg font-bold text-green-800">הגדרה מדויקת:</h3>
+                    <p id="definition" class="text-md text-green-900 mb-3"></p>
+                    
+                    <h3 class="text-lg font-bold text-green-800">הסבר:</h3>
+                    <p id="explanation" class="text-md text-green-900 mb-3"></p>
+                    
+                    <h3 class="text-lg font-bold text-green-800">טיפ לזכירה:</h3>
+                    <p id="tip" class="text-md text-green-900 italic"></p>
+                </div>
+            </div>
+
+            <!-- כפתור שאלה הבאה (מוסתר) -->
+            <button id="next-btn"
+                    onclick="nextQuestion()"
+                    class="w-full mt-4 bg-gray-700 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors duration-300 shadow-md hidden focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+                השאלה הבאה
+            </button>
+        </div>
+
+        <!-- מסך סיום -->
+        <div id="completion-screen" class="text-center hidden">
+            <h2 class="text-3xl font-bold text-gray-800 mb-4">כל הכבוד!</h2>
+            <p class="text-xl text-gray-600 mb-6">סיימת את הבוחן בהצלחה.</p>
+            <button onclick="restartQuiz()"
+                    class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-300 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                התחל מחדש
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // מאגר השאלות מבוסס על 26 המונחים מקובץ ה-PDF
+        const quizData = [
+            // --- 12 המונחים המקוריים ---
+            {
+                term: "טמפרטורת נקודת הטל",
+                definition: "הטמפרטורה שיש לקרר אליה את גוש האוויר בתהליך איזוברי (בלחץ קבוע) על מנת שתתרחש רוויה.",
+                explanation: "זו הטמפרטורה שבה האוויר כבר לא יכול להחזיק את כל אדי המים שבו, והם מתחילים להתעבות לטיפות מים זעירות (כמו טל, ערפל או עננים). ככל שנקודת הטל קרובה יותר לטמפרטורת האוויר, כך האוויר לח יותר.",
+                tip: "חשבו על 'נקודה' שבה האוויר 'מטפטף' - הטמפרטורה שבה ה'טל' מתחיל להיווצר."
+            },
+            {
+                term: "שקע ברומטרי",
+                definition: "אזור בו לחץ האוויר נמוך ביחס לסביבתו.",
+                explanation: "בגלל הלחץ הנמוך, אוויר מהסביבה זורם פנימה (מתכנס) אל מרכז השקע. האוויר הזה חייב לעלות למעלה, מה שגורם להתקררות, התעבות ועננות. לכן, שקעים מזוהים עם מזג אוויר לא יציב, עננים ומשקעים.",
+                tip: "שקע = 'שוקע' פנימה. אוויר נכנס פנימה ועולה למעלה, כמו מים שיורדים בכיור (בצורה הפוכה)."
+            },
+            {
+                term: "כוח קוריוליס",
+                definition: "כוח מדומה הפועל על גופים בתוך מערכות מסתובבות, הגורם להטיה בתנועתם.",
+                explanation: "בגלל שכדור הארץ מסתובב, כל גוף שנע (כמו אוויר או מים) מוסט מהנתיב הישר שלו. בחצי הכדור הצפוני, ההטיה היא תמיד ימינה לכיוון התנועה. בחצי הכדור הדרומי, ההטיה היא שמאלה. כוח זה הוא שגורם לרוחות להסתובב סביב שקעים ורמות במקום לזרום ישר מהרמה לשקע.",
+                tip: "קוריוליס = 'סיבוב'. בגלל סיבוב כדור הארץ, הרוח 'מחליקה' ימינה (בצפון)."
+            },
+            {
+                term: "טרופוספרה",
+                definition: "השכבה הנמוכה ביותר של האטמוספירה, שבה מתרחשות כל תופעות מזג האוויר.",
+                explanation: "שכבה זו מתחילה מהקרקע ומגיעה לגובה של כ-10-12 ק\"מ. היא מאופיינת בכך שהטמפרטורה יורדת ככל שעולים בגובה. היא מכילה כ-75% ממסת האוויר וכמעט את כל אדי המים.",
+                tip: "טרופו = 'שינוי' (מיוונית). זו השכבה שבה מזג האוויר כל הזמן משתנה."
+            },
+            {
+                term: "זרם סילון",
+                definition: "רצועה צרה של רוחות חזקות מאוד (מעל 75 קשר) בגבהי הטיסה (ברום הטרופוספרה).",
+                explanation: "זרמי הסילון נוצרים בגבולות בין גושי אוויר עם טמפרטורות שונות. הם זורמים ממערב למזרח ומשפיעים מאוד על מסלולי הטיסה ועל התפתחות מערכות מזג אוויר על הקרקע.",
+                tip: "סילון = מטוס סילון. זוהי 'אוטוסטרדה' של רוח מהירה בגובה שבו טסים מטוסי סילון."
+            },
+            {
+                term: "מפל אדיאבטי יבש",
+                definition: "קצב ההתקררות של גוש אוויר לא רווי (יבש) בעת עלייתו, כ-9.8 מעלות צלזיוס לכל 1000 מטר.",
+                explanation: "כשאוויר עולה, הלחץ סביבו יורד, והוא מתפשט. פעולת ההתפשטות גורמת להתקררות. כל עוד הוא לא רווי, הוא מתקרר בקצב קבוע זה.",
+                tip: "יבש = מהיר. אוויר יבש מתקרר מהר בעלייה (כמעט 10° לק\"מ)."
+            },
+            {
+                term: "רמה ברומטרית",
+                definition: "אזור בו לחץ האוויר גבוה ביחס לסביבתו.",
+                explanation: "בגלל הלחץ הגבוה, אוויר ממרכז הרמה זורם החוצה (מתבדר). אוויר מהשכבות הגבוהות שוקע (מתמוכך) למטה. אוויר שוקע מתחמם ומתייבש, ולכן רמות מזוהות עם מזג אוויר יציב ושמיים בהירים.",
+                tip: "רמה = 'רם' וגבוה. אוויר יורד מלמעלה ומתפזר, מדכא עננים וגורם למזג אוויר נאה."
+            },
+            {
+                term: "שקע חזיתי",
+                definition: "שקע ברומטרי שנוצר כתוצאה ממפגש בין גוש אוויר קר לגוש אוויר חם.",
+                explanation: "זהו השקע ה'קלאסי' של קווי הרוחב הבינוניים (כמו שקע קפריסאי בחורף). המפגש בין גושי האוויר יוצר חזיתות (חמה וקרה), עלייה של אוויר, עננים ומשקעים.",
+                tip: "חזיתי = חזית/מלחמה. זוהי 'מלחמה' בין אוויר חם לאוויר קר, שיוצרת שקע ומזג אוויר סוער."
+            },
+            {
+                term: "מפל אדיאבטי לח",
+                definition: "קצב ההתקררות של גוש אוויר רווי בעת עלייתו, כ-6 מעלות צלזיוס לכל 1000 מטר (בממוצע).",
+                explanation: "כאשר גוש אוויר רווי עולה ומתקרר, אדי המים שבו מתעבים לעננים. תהליך ההתעבות משחרר חום כמוס, אשר 'מחמם' את גוש האוויר ומאט את קצב ההתקררות שלו.",
+                tip: "לח = לאט. אוויר לח (רווי) מתקרר לאט יותר, כי יצירת הענן משחררת חום שמפצה על ההתקררות."
+            },
+            {
+                term: "התקרחות זגוגית",
+                definition: "הצטברות קרח חלקה, שקופה וקשה, הנגרמת מטיפות מים גדולות בקירור-יתר שקופאות על כנף המטוס תוך כדי החלקה לאחור.",
+                explanation: "זוהי הצורה המסוכנת ביותר של התקרחות. היא מתרחשת כשהמטוס טס דרך טיפות מים גדולות (כמו גשם קל) שנמצאות בטמפרטורה מתחת לאפס. היא משנה בצורה חמורה את צורת הכנף ופוגעת בעילוי.",
+                tip: "זגוגית = כמו זכוכית. קרח חלק ושקוף כמו זכוכית, ש'מזגג' את הכנף."
+            },
+            {
+                term: "חוק בויס בלוט",
+                definition: "כלל אצבע הקובע את הקשר בין כיוון הרוח למיקום מערכות הלחץ.",
+                explanation: "בחצי הכדור הצפוני, אם עומדים עם הגב לרוח, הלחץ הנמוך (השקע) יהיה בצד שמאל והלחץ הגבוה (הרמה) יהיה בצד ימין. (בחצי הכדור הדרומי - הפוך).",
+                tip: "בויס בלוט = שמאל נמוך. כשאתה עם הגב לרוח (בצפון), צד שמאל שלך מצביע על הלחץ הנמוך."
+            },
+            {
+                term: "אינברסיה",
+                definition: "מצב שבו הטמפרטורה עולה עם הגובה, בניגוד למצב הרגיל בטרופוספרה.",
+                explanation: "במצב רגיל האוויר קר למעלה וחם למטה. באינברסיה, יש שכבת אוויר חם מעל אוויר קר. השכבה החמה פועלת כ'מכסה' ומונעת מהאוויר שמתחתיה לעלות. זהו מצב יציב מאוד ש'כולא' זיהום אוויר, אובך ולחות קרוב לקרקע.",
+                tip: "אינברסיה = היפוך (Inverse). הטמפרטורה מתהפכת ועולה עם הגובה במקום לרדת."
+            },
+            
+            // --- 14 המונחים הנוספים ---
+            {
+                term: "טרופופאוזה",
+                definition: "שכבת הביניים הדקה המפרידה בין הטרופוספרה לסטרטוספרה.",
+                explanation: "זוהי הנקודה שבה הטמפרטורה מפסיקה לרדת עם הגובה (כמו בטרופוספרה) ומתחילה להישאר קבועה או לעלות (כמו בסטרטוספרה). גובה הטרופופאוזה משמש כ'תקרה' להתפתחות רוב העננים ומערכות מזג האוויר.",
+                tip: "פאוזה = הפסקה. זוהי ההפסקה שבין הטרופוספרה לסטרטוספרה, שם מפל הטמפרטורה עושה 'הפסקה'."
+            },
+            {
+                term: "יציבות",
+                definition: "היכולת של גוש אוויר להישאר במקומו הנוכחי או לחזור אליו לאחר הפרעה.",
+                explanation: "אוויר יציב הוא אוויר שקר מסביבתו, ואם דוחפים אותו למעלה הוא ירצה לרדת בחזרה (כמו כדור בעמק). אוויר בלתי יציב הוא חם מסביבתו, וימשיך לעלות. יציבות מדכאת עננים, אי-יציבות מעודדת עננים ערמתיים וסערות.",
+                tip: "יציב = נשאר במקום. אוויר יציב לא אוהב לזוז וגורם למזג אוויר רגוע."
+            },
+            {
+                term: "פרץ רוח",
+                definition: "עלייה פתאומית, קצרה וחזקה במהירות הרוח, מעל המהירות הממוצעת.",
+                explanation: "פרצי רוח נגרמים לרוב על ידי ערבול באטמוספירה, או על ידי זרמים יורדים חזקים מענני סערה (כמו מיקרוברסט). הם מהווים סכנה תעופתית, במיוחד בהמראה ונחיתה.",
+                tip: "פרץ = פתאומי. כמו פרץ מים, זוהי 'מכה' פתאומית וחזקה של רוח."
+            },
+            {
+                term: "סטרטוקומולוס (Sc)",
+                definition: "ענן שכבתי (סטרטוס) בעל התפתחות ערמתית (קומולוס) מעטה. נראה כגוש או שכבה של עננים אפורים או לבנבנים.",
+                explanation: "אלו עננים נמוכים שנראים לעיתים קרובות כ'שמיכת טלאים' בשמיים. הם נוצרים לרוב מהתפשטות של ענני קומולוס שנתקלים בשכבת אינברסיה. עשויים להוריד גשם קל או רסס.",
+                tip: "סטרטו (שכבתי) + קומולוס (ערמתי) = ערימות מרוחות בשכבה."
+            },
+            {
+                term: "קרינה קצרת גל",
+                definition: "קרינה אלקטרומגנטית בעלת אורך גל קצר, הנפלטת מגופים חמים מאוד, כמו השמש (כולל אור נראה).",
+                explanation: "האטמוספירה שקופה יחסית לקרינה זו, ולכן היא מצליחה להגיע לקרקע ולחמם אותה. הקרקע, שהיא קרה יותר, פולטת בחזרה קרינה ארוכת גל (אינפרה-אדום), שהיא 'נבלעת' על ידי גזי חממה.",
+                tip: "קצר = חם. השמש החמה פולטת קרינה קצרה."
+            },
+            {
+                term: "חזית חמה",
+                definition: "אזור מפגש שבו גוש אוויר חם נע לעבר גוש אוויר קר ותופס את מקומו.",
+                explanation: "מכיוון שהאוויר החם קל יותר, הוא 'מטפס' במתינות מעל האוויר הקר הנסוג. הטיפוס המתון יוצר עננות שכבתית נרחבת (סטרטוס, נימבוסטרטוס) וגשם קל ומתמשך.",
+                tip: "חזית חמה = טיפוס מתון. האוויר החם מטפס לאט לאט על הקר, ויוצר 'שטיח' ארוך של עננים וגשם."
+            },
+            {
+                term: "צירוס (Ci)",
+                definition: "ענן גבוה (מעל 6 ק\"מ) המורכב מגבישי קרח, הנראה בצורת סיבים, שערות או נוצות לבנות ועדינות.",
+                explanation: "אלו העננים הגבוהים ביותר, הם דקים ושקופים יחסית לשמש ולירח. הופעתם יכולה לעתים לבשר על התקרבות של מערכת מזג אוויר.",
+                tip: "צירוס נשמע כמו 'סירוס' (מסרק). העננים נראים כמו סיבים עדינים ש'סירקו' בשמיים."
+            },
+            {
+                term: "מיקרוברסט (Microburst)",
+                definition: "זרם אוויר יורד (downdraft) חזק ומרוכז מאוד, הפוגע בקרקע ומתפשט החוצה לכל הכיוונים.",
+                explanation: "זוהי תופעה מסוכנת ביותר לתעופה, במיוחד בהמראה ונחיתה. היא נוצרת לרוב בענני סערה (Cb) וגורמת לשינויים פתאומיים ברוח (גזירת רוח).",
+                tip: "מיקרו = קטן ומרוכז, ברסט = התפרצות. התפרצות אוויר קטנה, מרוכזת ומסוכנת מאוד."
+            },
+            {
+                term: "קומולוס (Cu)",
+                definition: "ענן ערימתי מבודד, בעל בסיס אופקי וכהה ופסגות מעוגלות ולבנות (נראה כמו 'צמר גפן' או כרובית).",
+                explanation: "אלו עננים של 'מזג אוויר נאה', הנוצרים כתוצאה מעליית אוויר חם (קונבקציה) מהקרקע. במצבי אי-יציבות, הם יכולים להתפתח לענני סערה (קומולונימבוס).",
+                tip: "קומולוס = ערימה (מלטינית). ענן שנראה כמו ערימה של צמר גפן."
+            },
+            {
+                term: "טמפרטורה לחה",
+                definition: "הטמפרטורה הנמוכה ביותר שאליה ניתן לקרר גוש אוויר על ידי אידוי מים לתוכו עד לרוויה.",
+                explanation: "זוהי הטמפרטורה שמודד מדחום שכוסה בבד לח. ככל שהאוויר יבש יותר, כך האידוי חזק יותר, והטמפרטורה הלחה נמוכה יותר מטמפרטורת האוויר.",
+                tip: "לחה = מדחום לח. מה שמדחום עם 'גרב' לחה היה מראה."
+            },
+            {
+                term: "סטרטוס (St)",
+                definition: "ענן שכבתי נמוך מאוד (בגובה מאות מטרים), אפור ואחיד, שגבולותיו אינם חדים.",
+                explanation: "ענן זה נראה כשכבת ערפל 'שהתרוממה' מהקרקע. אם הוא יורד ונוגע בקרקע, הוא נקרא 'ערפל'. הוא מלווה בראות לקויה ויכול להוריד רסס קל.",
+                tip: "סטרטוס = שטיח (מלטינית 'שכבה'). ענן שנראה כמו שטיח אפור ואחיד בשמיים."
+            },
+            {
+                term: "לחות יחסית",
+                definition: "היחס (באחוזים) בין כמות אדי המים הנמצאת באוויר לבין הכמות המקסימלית שאותה האוויר יכול להכיל באותה טמפרטורה.",
+                explanation: "100% לחות יחסית משמעו שהאוויר רווי. לחות יחסית תלויה מאוד בטמפרטורה: אוויר חם יכול להכיל יותר אדי מים מאשר אוויר קר.",
+                tip: "יחסית = יחס לטמפרטורה. כמה האוויר 'מלא' באדים, יחסית למקסימום שהוא יכול להחזיק בטמפרטורה הנוכחית."
+            },
+            {
+                term: "מערכת לחץ",
+                definition: "תבנית מאורגנת של לחץ אטמוספרי, המתבטאת באזור של לחץ גבוה (רמה) או לחץ נמוך (שקע) ביחס לסביבה.",
+                explanation: "מערכות לחץ קובעות את כיוון הרוח ואת אופי מזג האוויר. שקעים (לחץ נמוך) גורמים לעליית אוויר ומשקעים. רמות (לחץ גבוה) גורמות לשקיעת אוויר ומזג אוויר נאה.",
+                tip: "מערכת = רמה או שקע. אלו המנועים הגדולים של מזג האוויר."
+            },
+            {
+                term: "שקע תרמלי",
+                definition: "שקע (לחץ נמוך) הנוצר כתוצאה מהתחממות חזקה של הקרקע באזור מסוים, הגורמת לאוויר שמעל לעלות.",
+                explanation: "כאשר הקרקע מתחממת מאוד (למשל, מדבר בקיץ), האוויר שמעליה עולה. עליית האוויר יוצרת 'חוסר' אוויר בקרקע, כלומר לחץ נמוך. דוגמה לכך היא האפיק הפרסי.",
+                tip: "תרמלי = חום. שקע שנוצר בגלל חום מהקרקע."
+            }
+        ];
+
+
+        let currentQuestionIndex = 0;
+        let shuffledQuizData = [];
+
+        // רכיבי DOM
+        const quizContainer = document.getElementById('quiz-container');
+        const completionScreen = document.getElementById('completion-screen');
+        const questionCounter = document.getElementById('question-counter');
+        const termEl = document.getElementById('term');
+        const userAnswerEl = document.getElementById('user-answer');
+        const submitBtn = document.getElementById('submit-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const feedbackContainer = document.getElementById('feedback-container');
+        const loader = document.getElementById('loader');
+        const feedbackEl = document.getElementById('feedback');
+        const showAnswerBtn = document.getElementById('show-answer-btn');
+        const correctAnswerContainer = document.getElementById('correct-answer-container');
+        const correctAnswerEl = document.getElementById('correct-answer');
+        const definitionEl = document.getElementById('definition');
+        const explanationEl = document.getElementById('explanation');
+        const tipEl = document.getElementById('tip');
+
+        // אתחול הבוחן
+        document.addEventListener('DOMContentLoaded', startQuiz);
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function startQuiz() {
+            shuffledQuizData = shuffleArray([...quizData]);
+            currentQuestionIndex = 0;
+            quizContainer.classList.remove('hidden');
+            completionScreen.classList.add('hidden');
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            if (currentQuestionIndex < shuffledQuizData.length) {
+                const question = shuffledQuizData[currentQuestionIndex];
+                termEl.textContent = question.term;
+                questionCounter.textContent = `שאלה ${currentQuestionIndex + 1} / ${shuffledQuizData.length}`;
+                
+                // איפוס מצב
+                userAnswerEl.value = '';
+                userAnswerEl.disabled = false;
+                feedbackContainer.classList.add('hidden');
+                feedbackEl.textContent = '';
+                loader.classList.add('hidden');
+                submitBtn.classList.remove('hidden');
+                submitBtn.disabled = false;
+                nextBtn.classList.add('hidden');
+                correctAnswerContainer.classList.add('hidden');
+                correctAnswerEl.classList.add('hidden');
+                showAnswerBtn.textContent = 'הצג תשובה מלאה';
+
+            } else {
+                // סיום הבוחן
+                quizContainer.classList.add('hidden');
+                completionScreen.classList.remove('hidden');
+            }
+        }
+
+        function submitAnswer() {
+            const userAnswer = userAnswerEl.value;
+            const correctDefinition = shuffledQuizData[currentQuestionIndex].definition;
+
+            if (userAnswer.trim() === '') {
+                feedbackEl.textContent = 'אנא הזן/י תשובה.';
+                feedbackContainer.classList.remove('hidden');
+                feedbackEl.classList.remove('hidden');
+                return;
+            }
+
+            // הצג טעינה
+            feedbackContainer.classList.remove('hidden');
+            feedbackEl.textContent = 'מעבד את תשובתך...';
+            feedbackEl.classList.remove('hidden');
+            loader.classList.remove('hidden');
+            submitBtn.disabled = true;
+            userAnswerEl.disabled = true;
+
+            // קריאה ל-Gemini
+            checkWithGemini(userAnswer, correctDefinition);
+        }
+
+        function showAnswer() {
+            const isHidden = correctAnswerEl.classList.toggle('hidden');
+            showAnswerBtn.textContent = isHidden ? 'הצג תשובה מלאה' : 'הסתר תשובה מלאה';
+            
+            if (!isHidden) {
+                const question = shuffledQuizData[currentQuestionIndex];
+                definitionEl.textContent = question.definition;
+                explanationEl.textContent = question.explanation;
+                tipEl.textContent = question.tip;
+            }
+        }
+
+        function nextQuestion() {
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+
+        function restartQuiz() {
+            startQuiz();
+        }
+
+        // --- לוגיקת Gemini API ---
+
+        // 1. התיקון הקריטי: שדה המפתח חייב להיות ריק כדי שהמערכת תזריק את המפתח הנכון
+        const apiKey = "AIzaSyC_DLS4a-6tU26oME_NqYQfIFfSg8rg1fo"; // <--- התיקון כאן
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+        // פונקציה לטיפול ב-Backoff
+        async function handleRetry(url, options, n = 3, delay = 1000) {
+            try {
+                return await fetch(url, options);
+            } catch (err) {
+                if (n === 1) throw err;
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return await handleRetry(url, options, n - 1, delay * 2);
+            }
+        }
+
+        // 2. התיקון השני: פונקציה חזקה יותר לטיפול בתשובות ושגיאות
+        async function checkWithGemini(userAnswer, correctDefinition) {
+            const systemPrompt = " אתה עוזר  לי ללמוד מטאורולוגיה. השווה את התשובה שלי להגדרה בחומר הלימוד. תן משוב קצר רק בעברית (משפט אחד מקסימום!) המתמקד בכיצד לשפר את התשובה ולהפוך אותה למושלמת. התמקד בחלקים החסרים או הלא מדויקים בתשובה שלי. אם התשובה מצוינת, תן חיזוק חיובי. דבר רק בעברית ורק משפט אחד";
+            
+            const userPrompt = `
+                הגדרה נכונה: "${correctDefinition}"
+                תשובה שלי: "${userAnswer}"
+                ---
+                מה המשוב שלך (משפט אחד):
+            `;
+
+            const payload = {
+                contents: [{ parts: [{ text: userPrompt }] }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                generationConfig: {
+                    maxOutputTokens: 300
+                }
+            };
+
+            const options = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            };
+
+            try {
+                const response = await handleRetry(apiUrl, options);
+
+                // טיפול בתשובות שאינן 200 OK (אך עדיין עשויות להכיל JSON)
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({})); // נסה לקרוא את גוף השגיאה
+                    console.error("API Error Response:", errorData);
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error?.message || response.statusText}`);
+                }
+
+                const result = await response.json();
+                console.log("Gemini API Response:", result); // לוג חיוני לדיבאג
+
+                // בדיקה משופרת של התשובה
+                const candidate = result.candidates?.[0];
+                const text = candidate?.content?.parts?.[0]?.text;
+
+                if (text) {
+                    // הצלחה! התשובה התקבלה
+                    loader.classList.add('hidden');
+                    feedbackEl.textContent = text.trim();
+                } else {
+                    // הקריאה הצליחה אך לא הוחזר טקסט - זו הבעיה שאתה חווה
+                    let errorMsg = "לא הצלחתי לעבד את התשובה, אנא נסה שוב."; // הודעת ברירת מחדל
+                    
+                    // בדיקה ספציפית לחסימת בטיחות
+                    const blockReason = candidate?.finishReason || result.promptFeedback?.blockReason;
+                    if (blockReason) {
+                        console.warn("Gemini block reason:", blockReason);
+                        errorMsg = "התשובה נחסמה עקב מדיניות מסויימת. תנסה שוב.";
+                    } else if (!candidate) {
+                        console.warn("No candidates in API response.", result);
+                        errorMsg = "המודל לא החזיר תשובה. נסה/י שוב.";
+                    }
+                    
+                    loader.classList.add('hidden');
+                    feedbackEl.textContent = errorMsg;
+                }
+            
+            } catch (error) {
+                // תופס שגיאות רשת או את השגיאה שזרקנו מ-!response.ok
+                console.error("Error calling Gemini API:", error);
+                loader.classList.add('hidden');
+                // הודעת שגיאה שונה לשגיאות רשת
+                feedbackEl.textContent = "אירעה שגיאת רשת בבדיקת התשובה. אנא בדוק את התשובה המלאה.";
+            } finally {
+                // החלק הזה תמיד ירוץ, ויציג את הכפתורים הבאים
+                submitBtn.classList.add('hidden');
+                nextBtn.classList.remove('hidden');
+                correctAnswerContainer.classList.remove('hidden');
+            }
+        }
+
+    </script>
+</body>
+</html>

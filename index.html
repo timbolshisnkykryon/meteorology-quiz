@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מרכז מבחנים במטאורולוגיה</title>
+    <!-- טעינת Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- טעינת גופן Rubik -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- טעינת אייקונים של Heroicons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/heroicons/2.1.1/24/outline/arrows-right-left.min.css" rel="stylesheet">
+
+    <style>
+        /* הגדרת גופן ברירת מחדל */
+        body {
+            font-family: 'Rubik', sans-serif;
+            overflow-x: hidden; /* מניעת גלילה אופקית בזמן אנימציות */
+        }
+
+        /* אנימציית רקע גרדיאנט קיצונית */
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .animated-gradient {
+            background: linear-gradient(-45deg, #0e7490, #155e75, #083344, #0c4a6e, #075985);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+
+        /* אנימציות כניסה */
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in-down {
+            animation: fadeInDown 0.6s ease-out backwards;
+        }
+
+        .fade-in-up {
+            animation: fadeInUp 0.8s ease-out backwards;
+        }
+
+        /* סגנון לכרטיסי הניווט */
+        .quiz-card {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            transform-style: preserve-3d;
+        }
+
+        .quiz-card:hover {
+            transform: scale(1.05) rotateY(5deg);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+        }
+        
+        .quiz-card:active {
+            transform: scale(1.02) rotateY(2deg);
+            transition-duration: 0.1s;
+        }
+
+        /* סגנון למעבר בין מסכים */
+        #main-menu, #quiz-viewer {
+            position: absolute;
+            width: 100%;
+            height: 100vh; /* גובה מלא */
+            top: 0;
+            transition: transform 0.6s cubic-bezier(0.86, 0, 0.07, 1); /* אנימציית 'ease-in-out' קיצונית */
+            will-change: transform;
+        }
+        
+        /* מסך בחירה - מתחיל במרכז */
+        #main-menu {
+            transform: translateX(0);
+            z-index: 20;
+            display: flex; /* שימוש ב-flex כדי למרכז */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* מסך המבחן - מתחיל מוסתר מימין */
+        #quiz-viewer {
+            transform: translateX(100%);
+            z-index: 10;
+            padding-top: 60px; /* מקום לכפתור "חזור" */
+            background-color: #f1f5f9; /* רקע למסך המבחן */
+        }
+
+        /* מצבי החלקה */
+        body.quiz-active #main-menu {
+            transform: translateX(-100%); /* החלק את התפריט שמאלה */
+        }
+
+        body.quiz-active #quiz-viewer {
+            transform: translateX(0); /* הבא את המבחן מהימין */
+            z-index: 30; /* ודא שהוא מעל התפריט */
+        }
+        
+        /* כפתור חזרה */
+        #back-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 50;
+        }
+
+    </style>
+</head>
+<body class="animated-gradient relative overflow-hidden" dir="rtl">
+
+    <!-- מסך בחירת מבחן (ראשי) -->
+    <div id="main-menu" class="p-6">
+        
+        <header class="text-center mb-10 md:mb-12">
+            <h1 class="text-5xl md:text-7xl font-extrabold text-white shadow-lg fade-in-down" style="animation-delay: 0.1s;">
+                מבחנים במטאורולוגיה
+            </h1>
+            <p class="text-xl md:text-2xl text-cyan-200 mt-4 font-medium fade-in-down" style="animation-delay: 0.3s;">
+                בחר/י את סוג המבחן הרצוי
+            </p>
+        </header>
+
+        <!-- רשת כרטיסי הניווט -->
+        <nav class="w-full max-w-5xl mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10">
+                
+                <!-- כרטיס 1: מבחן אמריקאי -->
+                <div class="fade-in-up" style="animation-delay: 0.5s;">
+                    <button onclick="loadQuiz('American_quic.html')" 
+                            class="quiz-card group relative w-full h-64 md:h-80 bg-cover bg-center rounded-2xl shadow-xl overflow-hidden"
+                            style="background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://placehold.co/600x400/0891b2/ffffff?text=%3F&font=rubik'); background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1592210454359-9043f067919b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wzNjUyOXwwfDF8c2VhcmNofDR8fHF1ZXN0aW9uJTIwbWFya3xlbnwwfHx8fDE3MzAzNDIzODJ8MA&ixlib=rb-4.0.3&q=80&w=1080');">
+                        <div class="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-20 transition-all duration-300"></div>
+                        <div class="relative h-full flex flex-col justify-end p-6 text-white">
+                            <h2 class="text-3xl font-bold">מבחן אמריקאי</h2>
+                            <p class="mt-2 text-lg font-light">שאלות רב-ברירה</p>
+                            <span class="absolute top-4 left-4 bg-cyan-500 text-white text-sm font-bold py-1 px-3 rounded-full group-hover:scale-110 transition-transform">
+                                מומלץ
+                            </span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- כרטיס 2: שאלות פתוחות -->
+                <div class="fade-in-up" style="animation-delay: 0.7s;">
+                    <button onclick="loadQuiz('open_quiz.html')" 
+                            class="quiz-card group relative w-full h-64 md:h-80 bg-cover bg-center rounded-2xl shadow-xl overflow-hidden"
+                            style="background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://placehold.co/600x400/0d9488/ffffff?text=%EE%90%A5&font=rubik'); background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1517976487-15181097e3a9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wzNjUyOXwwfDF8c2VhcmNofDExfHxwZW5jaWwlMjBwYXBlcnxlbnwwfHx8fDE3MzAzNDI0MTJ8MA&ixlib=rb-4.0.3&q=80&w=1080');">
+                        <div class="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-20 transition-all duration-300"></div>
+                        <div class="relative h-full flex flex-col justify-end p-6 text-white">
+                            <h2 class="text-3xl font-bold">שאלות פתוחות</h2>
+                            <p class="mt-2 text-lg font-light">הקלדת תשובה מלאה</p>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- כרטיס 3: בוחן מונחים -->
+                <div class="fade-in-up" style="animation-delay: 0.9s;">
+                    <button onclick="loadQuiz('definitions_quiz.html')"
+                            class="quiz-card group relative w-full h-64 md:h-80 bg-cover bg-center rounded-2xl shadow-xl overflow-hidden"
+                            style="background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://placehold.co/600x400/4f46e5/ffffff?text=%EE%9A%8F&font=rubik'); background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1507842217343-583bb7270b66?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wzNjUyOXwwfDF8c2VhcmNofDR8fGRpY3Rpb25hcnl8ZW58MHx8fHwxNzMwMzQyNDM4fDA&ixlib=rb-4.0.3&q=80&w=1080');">
+                        <div class="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-20 transition-all duration-300"></div>
+                        <div class="relative h-full flex flex-col justify-end p-6 text-white">
+                            <h2 class="text-3xl font-bold">בוחן מונחים</h2>
+                            <p class="mt-2 text-lg font-light">הגדרת מונחים מרכזיים</p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+    </div>
+
+    <!-- מסך הצגת מבחן (מוסתר בתחילה) -->
+    <div id="quiz-viewer" class="bg-gray-100">
+        
+        <!-- כפתור חזרה -->
+        <button id="back-button" onclick="goBackToMenu()" 
+                class="flex items-center gap-2 bg-white text-gray-700 font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-gray-200 transition-all duration-200">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+            </svg>
+            חזרה לתפריט
+        </button>
+        
+        <!-- Iframe לטעינת המבחנים -->
+        <iframe id="quiz-iframe" class="w-full h-full border-none" title="מבחן"></iframe>
+
+    </div>
+
+    <script>
+        const body = document.body;
+        const quizIframe = document.getElementById('quiz-iframe');
+
+        /**
+         * טוען מבחן לתוך ה-iframe ומפעיל את אנימציית המעבר
+         * @param {string} quizUrl - ה-URL של קובץ ה-HTML של המבחן
+         */
+        function loadQuiz(quizUrl) {
+            // הגדר את ה-src של ה-iframe
+            quizIframe.src = quizUrl;
+            
+            // הוסף קלאס ל-body כדי להפעיל את אנימציות ה-CSS
+            body.classList.add('quiz-active');
+        }
+
+        /**
+         * מחזיר לתפריט הראשי ומנקה את ה-iframe
+         */
+        function goBackToMenu() {
+            // הסר את הקלאס מה-body כדי להפוך את האנימציה
+            body.classList.remove('quiz-active');
+            
+            // נקה את ה-iframe לאחר סיום האנימציה כדי לעצור תהליכים (כמו סאונד)
+            setTimeout(() => {
+                quizIframe.src = 'about:blank';
+            }, 600); // 600ms, תואם למשך ה-transition ב-CSS
+        }
+        
+        // טיפול בתמונות חלופיות
+        document.addEventListener('DOMContentLoaded', () => {
+            const images = document.querySelectorAll('.quiz-card');
+            const fallbacks = [
+                'https://placehold.co/600x400/0891b2/ffffff?text=%3F&font=rubik',
+                'https://placehold.co/600x400/0d9488/ffffff?text=%EE%90%A5&font=rubik',
+                'https://placehold.co/600x400/4f46e5/ffffff?text=%EE%9A%8F&font=rubik'
+            ];
+
+            images.forEach((card, index) => {
+                const style = card.style.backgroundImage;
+                if (style.includes('url("https://images.unsplash.com')) {
+                    const imgUrl = style.split('url("')[1].split('")')[0];
+                    const img = new Image();
+                    img.src = imgUrl;
+                    img.onerror = () => {
+                        // אם התמונה מ-unsplash נכשלת, טען את ה-placeholder
+                        card.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('${fallbacks[index]}')`;
+                    };
+                }
+            });
+        });
+
+    </script>
+</body>
+</html>
