@@ -125,9 +125,16 @@
     <div class="bg-white rounded-lg shadow-2xl p-6 md:p-8 w-full max-w-4xl mx-auto">
         
         <!-- כותרת ומונה שאלות -->
-        <div class="flex justify-between items-center mb-6 pb-4 border-b">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 pb-4 border-b">
             <h1 class="text-2xl md:text-3xl font-bold text-gray-800">מבחן שאלות פתוחות במטאורולוגיה</h1>
-            <div id="question-counter" class="text-lg font-semibold text-gray-600 bg-gray-100 px-3 py-1 rounded-full"></div>
+            <div class="flex items-center gap-3">
+                <button type="button"
+                        onclick="shuffleQuestions()"
+                        class="inline-flex items-center gap-2 bg-teal-100 text-teal-800 font-semibold py-2 px-3 rounded-lg hover:bg-teal-200 transition-colors duration-200">
+                    ערבב/י שאלות
+                </button>
+                <div id="question-counter" class="text-lg font-semibold text-gray-600 bg-gray-100 px-3 py-1 rounded-full"></div>
+            </div>
         </div>
 
         <div id="standalone-nav" class="hidden">
@@ -766,6 +773,10 @@
             }
             currentQuestionIndex++;
             loadQuestion();
+        }
+
+        function shuffleQuestions() {
+            restartQuiz();
         }
 
         function restartQuiz() {
