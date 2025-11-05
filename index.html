@@ -96,6 +96,10 @@
             background-color: #f1f5f9; /* רקע למסך המבחן */
         }
 
+        #quiz-iframe {
+            height: calc(100vh - 60px);
+        }
+
         /* מצבי החלקה */
         body.quiz-active #main-menu {
             transform: translateX(-100%); /* החלק את התפריט שמאלה */
@@ -205,10 +209,19 @@
          * טוען מבחן לתוך ה-iframe ומפעיל את אנימציית המעבר
          * @param {string} quizUrl - ה-URL של קובץ ה-HTML של המבחן
          */
+        function isMobileView() {
+            return window.matchMedia('(max-width: 768px)').matches;
+        }
+
         function loadQuiz(quizUrl) {
+            if (isMobileView()) {
+                window.location.href = quizUrl;
+                return;
+            }
+
             // הגדר את ה-src של ה-iframe
             quizIframe.src = quizUrl;
-            
+
             // הוסף קלאס ל-body כדי להפעיל את אנימציות ה-CSS
             body.classList.add('quiz-active');
         }
