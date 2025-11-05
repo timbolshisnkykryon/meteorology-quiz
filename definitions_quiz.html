@@ -390,6 +390,8 @@
         const questionIndexContainer = document.getElementById('question-index');
         const standaloneNav = document.getElementById('standalone-nav');
 
+        const STORAGE_KEY = 'definitions_quiz_state_v1';
+        let shuffledOrder = [];
         let questionStates = [];
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -398,6 +400,76 @@
             }
             startQuiz();
         });
+
+        function createEmptyState() {
+            return { answer: '', feedback: '', showAnswer: false, status: 'unanswered' };
+        }
+
+        function loadSavedState() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (!stored) {
+                    return null;
+                }
+
+                const parsed = JSON.parse(stored);
+                if (!Array.isArray(parsed.order) || parsed.order.length !== quizData.length) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    return null;
+                }
+
+                if (!Array.isArray(parsed.questionStates) || parsed.questionStates.length !== quizData.length) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    return null;
+                }
+
+                if (!parsed.order.every(idx => Number.isInteger(idx) && idx >= 0 && idx < quizData.length)) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    return null;
+                }
+
+                const sanitizedStates = parsed.questionStates.map(state => ({
+                    answer: typeof state?.answer === 'string' ? state.answer : '',
+                    feedback: typeof state?.feedback === 'string' ? state.feedback : '',
+                    showAnswer: Boolean(state?.showAnswer),
+                    status: state?.status === 'done' ? 'done' : 'unanswered'
+                }));
+
+                const savedIndex = Number.isInteger(parsed.currentQuestionIndex) ? parsed.currentQuestionIndex : 0;
+
+                return {
+                    order: parsed.order.slice(),
+                    questionStates: sanitizedStates,
+                    currentQuestionIndex: Math.min(Math.max(savedIndex, 0), quizData.length - 1),
+                    completed: Boolean(parsed.completed)
+                };
+            } catch (error) {
+                console.warn('Failed to load saved quiz state', error);
+                return null;
+            }
+        }
+
+        function saveState(extra = {}) {
+            try {
+                const payload = {
+                    order: shuffledOrder,
+                    questionStates,
+                    currentQuestionIndex,
+                    completed: extra.completed !== undefined ? extra.completed : !completionScreen.classList.contains('hidden')
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+            } catch (error) {
+                console.warn('Failed to save quiz state', error);
+            }
+        }
+
+        function clearSavedState() {
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+            } catch (error) {
+                console.warn('Failed to clear quiz state', error);
+            }
+        }
 
         function renderQuestionIndex() {
             questionIndexContainer.innerHTML = '';
@@ -446,15 +518,40 @@
             return array;
         }
 
-        function startQuiz() {
-            shuffledQuizData = shuffleArray([...quizData]);
-            questionStates = shuffledQuizData.map(() => ({ answer: '', feedback: '', showAnswer: false, status: 'unanswered' }));
+        function startQuiz(reset = false) {
+            let savedState = null;
+            if (!reset) {
+                savedState = loadSavedState();
+            }
+
+            if (savedState) {
+                shuffledOrder = savedState.order.slice();
+                shuffledQuizData = shuffledOrder.map(idx => quizData[idx]);
+                questionStates = savedState.questionStates;
+                currentQuestionIndex = savedState.currentQuestionIndex;
+                isEvaluating = false;
+                quizContainer.classList.toggle('hidden', savedState.completed);
+                completionScreen.classList.toggle('hidden', !savedState.completed);
+                renderQuestionIndex();
+                if (savedState.completed) {
+                    updateQuestionIndex();
+                    saveState({ completed: true });
+                } else {
+                    loadQuestion();
+                }
+                return;
+            }
+
+            shuffledOrder = shuffleArray(Array.from({ length: quizData.length }, (_, idx) => idx));
+            shuffledQuizData = shuffledOrder.map(idx => quizData[idx]);
+            questionStates = shuffledQuizData.map(() => createEmptyState());
             currentQuestionIndex = 0;
             isEvaluating = false;
             quizContainer.classList.remove('hidden');
             completionScreen.classList.add('hidden');
             renderQuestionIndex();
             loadQuestion();
+            saveState();
         }
 
         function loadQuestion() {
@@ -463,6 +560,7 @@
             if (currentQuestionIndex >= shuffledQuizData.length) {
                 quizContainer.classList.add('hidden');
                 completionScreen.classList.remove('hidden');
+                saveState({ completed: true });
                 return;
             }
 
@@ -509,6 +607,8 @@
                     feedbackEl.textContent = 'מעבד את תשובתך...';
                 }
             }
+
+            saveState();
         }
 
         function submitAnswer() {
@@ -535,6 +635,7 @@
 
             isEvaluating = true;
             updateQuestionIndex();
+            saveState();
 
             feedbackContainer.classList.remove('hidden');
             feedbackEl.textContent = 'מעבד את תשובתך...';
@@ -560,6 +661,8 @@
                 explanationEl.textContent = question.explanation;
                 tipEl.textContent = question.tip;
             }
+
+            saveState();
         }
 
         function nextQuestion() {
@@ -574,7 +677,9 @@
             if (isEvaluating) {
                 return;
             }
-            startQuiz();
+            clearSavedState();
+            shuffledOrder = [];
+            startQuiz(true);
         }
 
         // --- לוגיקת Gemini API ---

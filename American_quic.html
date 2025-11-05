@@ -925,6 +925,7 @@
         const questionIndexContainer = document.getElementById('question-index');
         const standaloneNav = document.getElementById('standalone-nav');
 
+        const STORAGE_KEY = 'american_quiz_state_v1';
         let questionStates = [];
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -933,6 +934,59 @@
             }
             startQuiz();
         });
+
+        function loadSavedState() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (!stored) {
+                    return null;
+                }
+
+                const parsed = JSON.parse(stored);
+                if (!Array.isArray(parsed.questionStates) || parsed.questionStates.length !== quizData.length) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    return null;
+                }
+
+                const sanitizedStates = parsed.questionStates.map(state => ({
+                    selected: typeof state?.selected === 'string' ? state.selected : null,
+                    checked: Boolean(state?.checked),
+                    correct: Boolean(state?.correct)
+                }));
+
+                const savedIndex = Number.isInteger(parsed.currentQuestionIndex) ? parsed.currentQuestionIndex : 0;
+
+                return {
+                    questionStates: sanitizedStates,
+                    currentQuestionIndex: Math.min(Math.max(savedIndex, 0), quizData.length - 1),
+                    completed: Boolean(parsed.completed)
+                };
+            } catch (error) {
+                console.warn('Failed to load saved quiz state', error);
+                return null;
+            }
+        }
+
+        function saveState(extra = {}) {
+            try {
+                const payload = {
+                    questionStates,
+                    currentQuestionIndex,
+                    completed: extra.completed !== undefined ? extra.completed : !completionScreen.classList.contains('hidden')
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+            } catch (error) {
+                console.warn('Failed to save quiz state', error);
+            }
+        }
+
+        function clearSavedState() {
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+            } catch (error) {
+                console.warn('Failed to clear quiz state', error);
+            }
+        }
 
         function renderQuestionIndex() {
             questionIndexContainer.innerHTML = '';
@@ -970,14 +1024,35 @@
             loadQuestion();
         }
 
-        function startQuiz() {
-            currentQuestionIndex = 0;
+        function startQuiz(reset = false) {
             selectedAnswer = null;
+            let savedState = null;
+            if (!reset) {
+                savedState = loadSavedState();
+            }
+
+            if (savedState) {
+                questionStates = savedState.questionStates;
+                currentQuestionIndex = savedState.currentQuestionIndex;
+                selectedAnswer = questionStates[currentQuestionIndex]?.selected || null;
+                renderQuestionIndex();
+                if (savedState.completed) {
+                    showCompletionScreen();
+                } else {
+                    quizContainer.classList.remove('hidden');
+                    completionScreen.classList.add('hidden');
+                    loadQuestion();
+                }
+                return;
+            }
+
+            currentQuestionIndex = 0;
             questionStates = quizData.map(() => ({ selected: null, checked: false, correct: false }));
             quizContainer.classList.remove('hidden');
             completionScreen.classList.add('hidden');
             renderQuestionIndex();
             loadQuestion();
+            saveState();
         }
 
         function loadQuestion() {
@@ -1018,6 +1093,8 @@
                 nextBtn.classList.add('hidden');
                 selectedAnswer = state.selected;
             }
+
+            saveState();
         }
 
         function applyCheckedState(state) {
@@ -1061,6 +1138,7 @@
             state.checked = false;
             state.correct = false;
             updateQuestionIndex();
+            saveState();
         }
 
         function checkAnswer() {
@@ -1078,6 +1156,7 @@
 
             applyCheckedState(state);
             updateQuestionIndex();
+            saveState();
         }
 
         function nextQuestion() {
@@ -1096,10 +1175,12 @@
             const percentage = Math.round((correctCount / quizData.length) * 100);
             scoreDisplay.textContent = `הציון שלך: ${correctCount} / ${quizData.length} (${percentage}%)`;
             updateQuestionIndex();
+            saveState({ completed: true });
         }
 
         function restartQuiz() {
-            startQuiz();
+            clearSavedState();
+            startQuiz(true);
         }
 
     </script>
