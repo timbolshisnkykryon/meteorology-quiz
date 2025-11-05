@@ -778,12 +778,29 @@
 
         const apiKey = "AIzaSyC_DLS4a-6tU26oME_NqYQfIFfSg8rg1fo";
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-        const safetySettings = [
+        const baseSafetyCategories = [
             'HARM_CATEGORY_DANGEROUS_CONTENT',
             'HARM_CATEGORY_HARASSMENT',
             'HARM_CATEGORY_HATE_SPEECH',
             'HARM_CATEGORY_SEXUAL'
-        ].map(category => ({ category, threshold: 'BLOCK_NONE' }));
+        ];
+        const sexualSafetyFallbacks = [
+            'HARM_CATEGORY_SEXUAL',
+            'HARM_CATEGORY_SEXUAL_CONTENT',
+            'HARM_CATEGORY_SEXUAL_AND_NUDITY'
+        ];
+
+        function buildSafetySettings(sexualCategory) {
+            return baseSafetyCategories.map(category => ({
+                category: category === 'HARM_CATEGORY_SEXUAL' ? sexualCategory : category,
+                threshold: 'BLOCK_NONE'
+            }));
+        }
+
+        function isInvalidSafetyCategoryError(error) {
+            const message = error?.message || '';
+            return message.includes("safety_settings") && message.includes("HarmCategory");
+        }
 
         // פונקציה לטיפול ב-Backoff
         async function handleRetry(url, options, n = 5, delay = 1200) {
@@ -809,7 +826,7 @@
                 .trim();
         }
 
-        async function requestGeminiFeedback({ systemPrompt, userPrompt }) {
+        async function sendGeminiRequest({ systemPrompt, userPrompt, safetySettings }) {
             const payload = {
                 contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
                 systemInstruction: {
@@ -853,6 +870,27 @@
             const blockReason = finishReason && finishReason !== 'STOP' ? finishReason : promptBlock || null;
 
             return { text, blockReason };
+        }
+
+        async function requestGeminiFeedback({ systemPrompt, userPrompt }) {
+            let lastError = null;
+
+            for (const sexualCategory of sexualSafetyFallbacks) {
+                try {
+                    const safetySettings = buildSafetySettings(sexualCategory);
+                    return await sendGeminiRequest({ systemPrompt, userPrompt, safetySettings });
+                } catch (error) {
+                    if (isInvalidSafetyCategoryError(error)) {
+                        console.warn('Retrying Gemini request with alternate sexual safety category:', sexualCategory, error);
+                        lastError = error;
+                        continue;
+                    }
+
+                    throw error;
+                }
+            }
+
+            throw lastError || new Error('Failed to resolve safety settings for Gemini request.');
         }
 
         async function checkWithGemini(userAnswer, correctDefinition) {
