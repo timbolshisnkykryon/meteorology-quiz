@@ -142,7 +142,14 @@
         <!-- כותרת ומונה שאלות -->
         <div class="flex justify-between items-center mb-6 pb-4 border-b">
             <h1 class="text-2xl md:text-3xl font-bold text-gray-800">מבחן: שאלות אמריקאיות</h1>
-            <div id="question-counter" class="text-lg font-semibold text-gray-600 bg-gray-100 px-3 py-1 rounded-full"></div>
+            <div class="flex items-center gap-3">
+                <button type="button"
+                        onclick="restartQuiz()"
+                        class="inline-flex items-center gap-2 bg-blue-100 text-blue-800 font-semibold py-2 px-4 rounded-lg hover:bg-blue-200 transition-colors duration-200">
+                    אפס/י את המבחן
+                </button>
+                <div id="question-counter" class="text-lg font-semibold text-gray-600 bg-gray-100 px-3 py-1 rounded-full"></div>
+            </div>
         </div>
 
         <div id="standalone-nav" class="hidden">
