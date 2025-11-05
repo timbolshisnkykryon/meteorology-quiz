@@ -702,13 +702,13 @@
         // 2. התיקון השני: פונקציה חזקה יותר לטיפול בתשובות ושגיאות
         async function checkWithGemini(userAnswer, correctDefinition) {
             const state = questionStates[currentQuestionIndex];
-            const systemPrompt = " אתה עוזר  לי ללמוד מטאורולוגיה. השווה את התשובה שלי להגדרה בחומר הלימוד. תן משוב קצר רק בעברית (משפט אחד מקסימום!) המתמקד בכיצד לשפר את התשובה ולהפוך אותה למושלמת. התמקד בחלקים החסרים או הלא מדויקים בתשובה שלי. אם התשובה מצוינת, תן חיזוק חיובי. דבר רק בעברית ורק משפט אחד";
+            const systemPrompt = " אתה עוזר  לי ללמוד מטאורולוגיה. השווה את התשובה שלי להגדרה בחומר הלימוד שלי. תן משוב קצר רק בעברית (שני משפטים מקסימום!) המתמקד בכיצד לשפר את התשובה ולהפוך אותה למושלמת. התמקד בחלקים החסרים או הלא מדויקים בתשובה שלי. אם התשובה מצוינת, תן חיזוק חיובי. דבר רק בעברית ורק עד שני משפטים אל תיתן את הדרך חשיבה שלך";
 
             const userPrompt = `
                 הגדרה נכונה: "${correctDefinition}"
                 תשובה שלי: "${userAnswer}"
                 ---
-                מה המשוב שלך (משפט אחד):
+                משוב:
             `;
 
             const payload = {
@@ -756,7 +756,7 @@
                     const blockReason = candidate?.finishReason || result.promptFeedback?.blockReason;
                     if (blockReason) {
                         console.warn("Gemini block reason:", blockReason);
-                        errorMsg = "התשובה נחסמה עקב מדיניות מסויימת. תנסה שוב.";
+                        errorMsg = "התשובה נחסמה עקב מדיניות מסויימת. לא נורא תקרא את התשובה המלאה.";
                     } else if (!candidate) {
                         console.warn("No candidates in API response.", result);
                         errorMsg = "המודל לא החזיר תשובה. נסה/י שוב.";
@@ -786,4 +786,5 @@
 
     </script>
 </body>
+
 </html>
