@@ -777,14 +777,8 @@
         // --- לוגיקת Gemini API ---
 
         const apiKey = "AIzaSyC_DLS4a-6tU26oME_NqYQfIFfSg8rg1fo";
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-        const safetySettings = [
-            'HARM_CATEGORY_DANGEROUS_CONTENT',
-            'HARM_CATEGORY_HARASSMENT',
-            'HARM_CATEGORY_HATE_SPEECH',
-            'HARM_CATEGORY_SEXUAL'
-        ].map(category => ({ category, threshold: 'BLOCK_NONE' }));
-
+        const geminiModel = 'gemini-2.5-flash-preview-09-2025';
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
         // פונקציה לטיפול ב-Backoff
         async function handleRetry(url, options, n = 5, delay = 1200) {
             try {
@@ -796,20 +790,7 @@
             }
         }
 
-        function sanitizeAnswer(text) {
-            if (!text) {
-                return '';
-            }
-
-            return text
-                .replace(/[\u0000-\u001F\u007F]/g, ' ')
-                .replace(/[<>]/g, ' ')
-                .replace(/https?:\/\/\S+/gi, '')
-                .replace(/\s+/g, ' ')
-                .trim();
-        }
-
-        async function requestGeminiFeedback({ systemPrompt, userPrompt }) {
+        async function sendGeminiRequest({ systemPrompt, userPrompt }) {
             const payload = {
                 contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
                 systemInstruction: {
@@ -821,9 +802,11 @@
                     temperature: 0.35,
                     topP: 0.9,
                     topK: 32
-                },
-                safetySettings
+                }
             };
+
+            // Explicitly ensure no safety settings are sent to avoid INVALID_ARGUMENT errors.
+            delete payload.safetySettings;
 
             const options = {
                 method: 'POST',
@@ -867,48 +850,26 @@
                 משוב (בעברית עד שלושה משפטים):
             `;
 
-            const sanitizedAnswer = sanitizeAnswer(userAnswer);
-            const attempts = [
-                { label: 'original', prompt: basePrompt },
-                ...(sanitizedAnswer && sanitizedAnswer !== userAnswer.trim()
-                    ? [{ label: 'sanitized', prompt: `
-                שאלה: "${shuffledQuizData[currentQuestionIndex].term}"
-                תשובת מודל: "${correctDefinition}"
-                ---
-                תשובת סטודנט (מעובדת לבטיחות): "${sanitizedAnswer}"
-                ---
-                משוב (בעברית עד שלושה משפטים):
-            ` }]
-                    : [])
-            ];
-
             let feedbackText = '';
             let lastBlockReason = null;
             let lastError = null;
 
-            for (const attempt of attempts) {
-                try {
-                    const { text, blockReason } = await requestGeminiFeedback({
-                        systemPrompt,
-                        userPrompt: attempt.prompt
-                    });
+            try {
+                const { text, blockReason } = await sendGeminiRequest({
+                    systemPrompt,
+                    userPrompt: basePrompt
+                });
 
-                    if (text) {
-                        feedbackText = text;
-                        break;
-                    }
-
-                    if (blockReason) {
-                        lastBlockReason = blockReason;
-                        console.warn('Gemini block reason:', blockReason, 'during', attempt.label, 'attempt');
-                        continue;
-                    }
-
+                if (text) {
+                    feedbackText = text;
+                } else if (blockReason) {
+                    lastBlockReason = blockReason;
+                } else {
                     lastError = new Error('No text returned from Gemini response.');
-                } catch (error) {
-                    console.error('Error calling Gemini API:', error);
-                    lastError = error;
                 }
+            } catch (error) {
+                console.error('Error calling Gemini API:', error);
+                lastError = error;
             }
 
             loader.classList.add('hidden');
