@@ -166,7 +166,22 @@
             <!-- אזור משוב וטעינה -->
             <div id="feedback-container" class="mt-4 min-h-[50px] p-3 bg-gray-50 rounded-lg hidden flex items-center justify-center">
                 <div id="loader" class="loader hidden"></div>
-                <p id="feedback" class="text-md font-medium text-gray-700"></p>
+                <p id="feedback" class="text-md font-medium text-gray-700 whitespace-pre-line"></p>
+            </div>
+
+            <div id="reset-actions" class="mt-4 flex flex-col md:flex-row md:items-center gap-2 hidden">
+                <button id="retry-btn"
+                        type="button"
+                        onclick="retryQuestion()"
+                        class="w-full md:w-auto bg-white border border-blue-500 text-blue-600 font-semibold py-2 px-4 rounded-lg hover:bg-blue-50 transition-colors duration-200">
+                    נסה/י שוב את השאלה הזו
+                </button>
+                <button id="reset-quiz-btn"
+                        type="button"
+                        onclick="restartQuiz()"
+                        class="w-full md:w-auto bg-blue-100 text-blue-800 font-semibold py-2 px-4 rounded-lg hover:bg-blue-200 transition-colors duration-200">
+                    אפס/י את כל המבחן
+                </button>
             </div>
 
             <!-- אזור תשובה נכונה (מוסתר) -->
@@ -404,6 +419,9 @@
         const tipEl = document.getElementById('tip');
         const questionIndexContainer = document.getElementById('question-index');
         const standaloneNav = document.getElementById('standalone-nav');
+        const resetActions = document.getElementById('reset-actions');
+        const retryBtn = document.getElementById('retry-btn');
+        const resetQuizBtn = document.getElementById('reset-quiz-btn');
 
         const STORAGE_KEY = 'open_quiz_state_v1';
         let shuffledOrder = [];
@@ -604,6 +622,8 @@
                 nextBtn.classList.remove('hidden');
                 nextBtn.textContent = currentQuestionIndex === shuffledQuizData.length - 1 ? 'סיום הבוחן' : 'השאלה הבאה';
                 correctAnswerContainer.classList.remove('hidden');
+                retryBtn.classList.remove('hidden');
+                retryBtn.disabled = false;
                 if (state.showAnswer) {
                     correctAnswerEl.classList.remove('hidden');
                     showAnswerBtn.textContent = 'הסתר תשובה מלאה';
@@ -624,10 +644,20 @@
                 correctAnswerContainer.classList.add('hidden');
                 correctAnswerEl.classList.add('hidden');
                 showAnswerBtn.textContent = 'הצג תשובה מלאה';
+                retryBtn.classList.add('hidden');
+                retryBtn.disabled = true;
                 if (state.status === 'in-progress') {
                     feedbackContainer.classList.remove('hidden');
                     feedbackEl.textContent = 'Gemini חושב על המשוב שלך...';
                 }
+            }
+
+            if (questionStates.some(s => s.status === 'done')) {
+                resetActions.classList.remove('hidden');
+                resetQuizBtn.disabled = false;
+            } else {
+                resetActions.classList.add('hidden');
+                resetQuizBtn.disabled = true;
             }
 
             saveState();
@@ -664,6 +694,8 @@
             loader.classList.remove('hidden');
             submitBtn.disabled = true;
             userAnswerEl.disabled = true;
+            resetQuizBtn.disabled = true;
+            retryBtn.disabled = true;
             correctAnswerContainer.classList.add('hidden');
             correctAnswerEl.classList.add('hidden');
             showAnswerBtn.textContent = 'הצג תשובה מלאה';
@@ -685,6 +717,44 @@
             }
 
             saveState();
+        }
+
+        function retryQuestion() {
+            if (isEvaluating) {
+                return;
+            }
+
+            const state = questionStates[currentQuestionIndex];
+            state.answer = '';
+            state.feedback = '';
+            state.showAnswer = false;
+            state.status = 'unanswered';
+
+            userAnswerEl.value = '';
+            userAnswerEl.disabled = false;
+            submitBtn.classList.remove('hidden');
+            submitBtn.disabled = false;
+            nextBtn.classList.add('hidden');
+            feedbackContainer.classList.add('hidden');
+            feedbackEl.textContent = '';
+            loader.classList.add('hidden');
+            correctAnswerContainer.classList.add('hidden');
+            correctAnswerEl.classList.add('hidden');
+            showAnswerBtn.textContent = 'הצג תשובה מלאה';
+            retryBtn.classList.add('hidden');
+            retryBtn.disabled = true;
+
+            if (questionStates.some(s => s.status === 'done')) {
+                resetActions.classList.remove('hidden');
+                resetQuizBtn.disabled = false;
+            } else {
+                resetActions.classList.add('hidden');
+                resetQuizBtn.disabled = true;
+            }
+
+            updateQuestionIndex();
+            saveState();
+            userAnswerEl.focus();
         }
 
         function nextQuestion() {
@@ -711,7 +781,7 @@
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
         // פונקציה לטיפול ב-Backoff
-        async function handleRetry(url, options, n = 3, delay = 1000) {
+        async function handleRetry(url, options, n = 5, delay = 1200) {
             try {
                 return await fetch(url, options);
             } catch (err) {
@@ -721,28 +791,38 @@
             }
         }
 
-        async function checkWithGemini(userAnswer, correctDefinition) {
-            const state = questionStates[currentQuestionIndex];
-            // פרומפט מערכת מותאם לבקשת המשתמש (עד 3 משפטים)
-            const systemPrompt = "א.אתה עוזר לי ללמוד מטאורולוגיה למבחן עם שאלות פתוחות.התשובה שלי היא תשובה חופשית. השווה את התשובה שלי להגדרה בחומר הלימוד שלי. תן משוב קצר רק בעברית (שלושה משפטים מקסימום!) המתמקד בכיצד לשפר את התשובה ולהפוך אותה למושלמת. התמקד בחלקים החסרים או הלא מדויקים בתשובה שלי והאם הבנתי את העיקרון המרכזי. אם התשובה מצוינת, תן חיזוק חיובי. דבר רק בעברית ורק עד שלושה משפטים אל תיתן את הדרך חשיבה שלך אל תגרום לבעיות מדיניות ";
+        function sanitizeAnswer(text) {
+            if (!text) {
+                return '';
+            }
 
-            const userPrompt = `
-                השאלה: "${shuffledQuizData[currentQuestionIndex].term}"
-                בחומר לימוד כתוב: "${correctDefinition}"
-                ---
-                התשובה שלי: "${userAnswer}"
-                ---
-                מה המשוב שלך (בעברית, עד 3 משפטים):
-            `;
+            return text
+                .replace(/[\u0000-\u001F\u007F]/g, ' ')
+                .replace(/[<>]/g, ' ')
+                .replace(/https?:\/\/\S+/gi, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
 
+        async function requestGeminiFeedback({ systemPrompt, userPrompt }) {
             const payload = {
-                contents: [{ parts: [{ text: userPrompt }] }],
+                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
                 systemInstruction: {
+                    role: 'system',
                     parts: [{ text: systemPrompt }]
                 },
                 generationConfig: {
-                    maxOutputTokens: 500 // כפי שביקשת
-                }
+                    maxOutputTokens: 1024,
+                    temperature: 0.35,
+                    topP: 0.9,
+                    topK: 32
+                },
+                safetySettings: [
+                    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+                    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+                    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+                    { category: 'HARM_CATEGORY_SEXUAL_CONTENT', threshold: 'BLOCK_NONE' }
+                ]
             };
 
             const options = {
@@ -751,52 +831,107 @@
                 body: JSON.stringify(payload)
             };
 
-            try {
-                const response = await handleRetry(apiUrl, options);
+            const response = await handleRetry(apiUrl, options);
 
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    console.error("API Error Response:", errorData);
-                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error?.message || response.statusText}`);
-                }
-
-                const result = await response.json();
-                console.log("Gemini API Response:", result);
-
-                const candidate = result.candidates?.[0];
-                const text = candidate?.content?.parts?.[0]?.text;
-
-                if (text) {
-                    loader.classList.add('hidden');
-                    state.feedback = text.trim();
-                } else {
-                    let errorMsg = "לא הצלחתי לעבד את התשובה, אנא נסה שוב.";
-                    const blockReason = candidate?.finishReason || result.promptFeedback?.blockReason;
-                    if (blockReason) {
-                        console.warn("Gemini block reason:", blockReason);
-                        errorMsg = "התשובה נחסמה עקב מדיניות בטיחות. נסה/י לנסח מחדש.";
-                    } else if (!candidate) {
-                        console.warn("No candidates in API response.", result);
-                        errorMsg = "המודל לא החזיר תשובה. נסה/י שוב.";
-                    }
-                    loader.classList.add('hidden');
-                    state.feedback = errorMsg;
-                }
-
-            } catch (error) {
-                console.error("Error calling Gemini API:", error);
-                loader.classList.add('hidden');
-                state.feedback = "אירעה שגיאת רשת בבדיקת התשובה. אנא בדוק את התשובה המלאה.";
-            } finally {
-                state.status = 'done';
-                isEvaluating = false;
-                feedbackContainer.classList.remove('hidden');
-                loader.classList.add('hidden');
-                submitBtn.disabled = false;
-                userAnswerEl.disabled = true;
-                updateQuestionIndex();
-                loadQuestion();
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error?.message || response.statusText}`);
             }
+
+            const result = await response.json();
+            console.log('Gemini API Response:', result);
+
+            const candidate = result.candidates?.[0];
+            const parts = candidate?.content?.parts || [];
+            const text = parts
+                .map(part => part?.text || '')
+                .join('\n')
+                .trim();
+
+            const finishReason = candidate?.finishReason;
+            const promptBlock = result.promptFeedback?.blockReason;
+            const blockReason = finishReason && finishReason !== 'STOP' ? finishReason : promptBlock || null;
+
+            return { text, blockReason };
+        }
+
+        async function checkWithGemini(userAnswer, correctDefinition) {
+            const state = questionStates[currentQuestionIndex];
+            const systemPrompt = "אתה מורה פרטי למטאורולוגיה. השווה בקצרה בין תשובת הסטודנט לבין תשובת המודל מהחומר. כתוב רק בעברית, עד שלושה משפטים, התמקד בדיוק מה לשפר ואם התשובה טובה תן חיזוק. אל תכלול דיון מדיניות או פירוט תהליך פנימי.";
+            const basePrompt = `
+                שאלה: "${shuffledQuizData[currentQuestionIndex].term}"
+                תשובת מודל: "${correctDefinition}"
+                ---
+                תשובת סטודנט: "${userAnswer}"
+                ---
+                משוב (בעברית עד שלושה משפטים):
+            `;
+
+            const sanitizedAnswer = sanitizeAnswer(userAnswer);
+            const attempts = [
+                { label: 'original', prompt: basePrompt },
+                ...(sanitizedAnswer && sanitizedAnswer !== userAnswer.trim()
+                    ? [{ label: 'sanitized', prompt: `
+                שאלה: "${shuffledQuizData[currentQuestionIndex].term}"
+                תשובת מודל: "${correctDefinition}"
+                ---
+                תשובת סטודנט (מעובדת לבטיחות): "${sanitizedAnswer}"
+                ---
+                משוב (בעברית עד שלושה משפטים):
+            ` }]
+                    : [])
+            ];
+
+            let feedbackText = '';
+            let lastBlockReason = null;
+            let lastError = null;
+
+            for (const attempt of attempts) {
+                try {
+                    const { text, blockReason } = await requestGeminiFeedback({
+                        systemPrompt,
+                        userPrompt: attempt.prompt
+                    });
+
+                    if (text) {
+                        feedbackText = text;
+                        break;
+                    }
+
+                    if (blockReason) {
+                        lastBlockReason = blockReason;
+                        console.warn('Gemini block reason:', blockReason, 'during', attempt.label, 'attempt');
+                        continue;
+                    }
+
+                    lastError = new Error('No text returned from Gemini response.');
+                } catch (error) {
+                    console.error('Error calling Gemini API:', error);
+                    lastError = error;
+                }
+            }
+
+            loader.classList.add('hidden');
+
+            if (feedbackText) {
+                state.feedback = feedbackText.trim();
+            } else if (lastBlockReason) {
+                state.feedback = `המודל חסם את המשוב (${lastBlockReason}). להמשך תרגול קרא/י את התשובה לדוגמה המצורפת.`;
+            } else {
+                state.feedback = "לא הצלחתי לקבל משוב מג'מיני כרגע. השתמש/י בתשובה לדוגמה כדי לבדוק את עצמך.";
+            }
+
+            if (!feedbackText) {
+                state.feedback += `\n\nתשובה לדוגמה: ${correctDefinition}`;
+            }
+
+            state.status = 'done';
+            isEvaluating = false;
+            feedbackContainer.classList.remove('hidden');
+            submitBtn.disabled = false;
+            userAnswerEl.disabled = true;
+            updateQuestionIndex();
+            loadQuestion();
         }
 
     </script>
