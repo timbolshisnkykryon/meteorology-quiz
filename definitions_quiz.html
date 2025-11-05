@@ -762,8 +762,8 @@
 
         // --- לוגיקת Gemini API ---
 
-        const apiKey = "AIzaSyC_DLS4a-6tU26oME_NqYQfIFfSg8rg1fo";
-        const geminiModel = 'gemini-2.5-flash-preview-09-2025';
+        const apiKey = "AIzaSyAnK5NXA_R_dMSKLYkQL_ka5mywJg5Hkk4";
+        const geminiModel = 'gemini-2.5-flash-lite-preview-09-2025';
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
         // פונקציה לטיפול ב-Backoff
         async function handleRetry(url, options, n = 5, delay = 1200) {
@@ -885,6 +885,7 @@
 </body>
 
 </html>
+
 
 
 
