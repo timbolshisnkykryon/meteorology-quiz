@@ -840,12 +840,12 @@
 
         async function checkWithGemini(userAnswer, correctDefinition) {
             const state = questionStates[currentQuestionIndex];
-            const systemPrompt = "אתה מורה פרטי למטאורולוגיה. השווה בקצרה בין תשובת הסטודנט לבין תשובת המודל מהחומר. כתוב רק בעברית, עד שלושה משפטים, התמקד בדיוק מה לשפר ואם התשובה טובה תן חיזוק. אל תכלול דיון מדיניות או פירוט תהליך פנימי.";
+            const systemPrompt = "אתה מורה פרטי למטאורולוגיה. השווה בקצרה בין התשובה שלי לבין תשובת המודל מהחומר. כתוב רק בעברית, עד שלושה משפטים, התמקד בדיוק מה לשפר ואם התשובה טובה תן חיזוק. אל תכלול דיון מדיניות או פירוט תהליך פנימי.";
             const basePrompt = `
                 שאלה: "${shuffledQuizData[currentQuestionIndex].term}"
                 תשובת מודל: "${correctDefinition}"
                 ---
-                תשובת סטודנט: "${userAnswer}"
+                תשובה שלי: "${userAnswer}"
                 ---
                 משוב (בעברית עד שלושה משפטים):
             `;
@@ -899,4 +899,5 @@
 </body>
 
 </html>
+
 
