@@ -144,6 +144,11 @@
             <h1 class="text-2xl md:text-3xl font-bold text-gray-800">מבחן: שאלות אמריקאיות</h1>
             <div class="flex items-center gap-3">
                 <button type="button"
+                        onclick="shuffleQuestions()"
+                        class="inline-flex items-center gap-2 bg-teal-100 text-teal-800 font-semibold py-2 px-3 rounded-lg hover:bg-teal-200 transition-colors duration-200">
+                    ערבב/י שאלות
+                </button>
+                <button type="button"
                         onclick="restartQuiz()"
                         class="inline-flex items-center gap-2 bg-blue-100 text-blue-800 font-semibold py-2 px-4 rounded-lg hover:bg-blue-200 transition-colors duration-200">
                     אפס/י את המבחן
@@ -214,7 +219,7 @@
 
     <script>
         // מאגר השאלות המלא (114 שאלות) - סדר קבוע
-        const quizData = [
+        const originalQuizData = [
             // שאלות 1-10
             {
                 q: "הסכנה העיקרית לנחיתה בתוך ענני סטרטוס היא:",
@@ -943,6 +948,10 @@
               }
         ];
 
+        const getDefaultOrder = () => originalQuizData.map((_, index) => index);
+        let currentOrder = getDefaultOrder();
+        let quizData = currentOrder.map(index => originalQuizData[index]);
+
 
         let currentQuestionIndex = 0;
         let selectedAnswer = null;
@@ -965,6 +974,23 @@
         const STORAGE_KEY = 'american_quiz_state_v1';
         let questionStates = [];
 
+        function applyOrder(order) {
+            currentOrder = order.slice();
+            quizData = currentOrder.map(index => originalQuizData[index]);
+        }
+
+        function resetOrder() {
+            applyOrder(getDefaultOrder());
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             if (window.self === window.top) {
                 standaloneNav.classList.remove('hidden');
@@ -973,6 +999,7 @@
         });
 
         function loadSavedState() {
+            resetOrder();
             try {
                 const stored = localStorage.getItem(STORAGE_KEY);
                 if (!stored) {
@@ -980,8 +1007,31 @@
                 }
 
                 const parsed = JSON.parse(stored);
+
+                let effectiveOrder = null;
+                if (Array.isArray(parsed.order)) {
+                    const parsedOrder = parsed.order
+                        .map(value => Number(value))
+                        .filter((value, index, array) => Number.isInteger(value) && value >= 0 && value < originalQuizData.length && array.indexOf(value) === index);
+
+                    if (parsedOrder.length === originalQuizData.length) {
+                        effectiveOrder = parsedOrder;
+                    }
+                } else if (parsed.order === undefined) {
+                    effectiveOrder = getDefaultOrder();
+                }
+
+                if (!effectiveOrder) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    resetOrder();
+                    return null;
+                }
+
+                applyOrder(effectiveOrder);
+
                 if (!Array.isArray(parsed.questionStates) || parsed.questionStates.length !== quizData.length) {
                     localStorage.removeItem(STORAGE_KEY);
+                    resetOrder();
                     return null;
                 }
 
@@ -1000,6 +1050,7 @@
                 };
             } catch (error) {
                 console.warn('Failed to load saved quiz state', error);
+                resetOrder();
                 return null;
             }
         }
@@ -1007,6 +1058,7 @@
         function saveState(extra = {}) {
             try {
                 const payload = {
+                    order: currentOrder.slice(),
                     questionStates,
                     currentQuestionIndex,
                     completed: extra.completed !== undefined ? extra.completed : !completionScreen.classList.contains('hidden')
@@ -1213,6 +1265,12 @@
             scoreDisplay.textContent = `הציון שלך: ${correctCount} / ${quizData.length} (${percentage}%)`;
             updateQuestionIndex();
             saveState({ completed: true });
+        }
+
+        function shuffleQuestions() {
+            const newOrder = shuffleArray(getDefaultOrder());
+            applyOrder(newOrder);
+            restartQuiz();
         }
 
         function restartQuiz() {
