@@ -17,6 +17,94 @@
             font-family: 'Rubik', sans-serif;
         }
 
+        .question-index-wrapper {
+            background-color: #f1f5f9;
+            border: 1px solid #cbd5f5;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .question-index-wrapper h2 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 0.75rem;
+        }
+
+        .question-index-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            max-height: 10rem;
+            overflow-y: auto;
+            padding: 0.25rem;
+        }
+
+        .question-index-btn {
+            width: 2.75rem;
+            height: 2.75rem;
+            border-radius: 9999px;
+            border: 1px solid #cbd5f5;
+            background-color: #f8fafc;
+            color: #0f172a;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .question-index-btn:hover {
+            background-color: #e2e8f0;
+        }
+
+        .question-index-btn.is-active {
+            background-color: #1d4ed8;
+            border-color: #1e3a8a;
+            color: #ffffff;
+            box-shadow: 0 10px 18px -10px rgba(29, 78, 216, 0.6);
+        }
+
+        .question-index-btn.is-in-progress {
+            background-color: #fef3c7;
+            border-color: #f59e0b;
+            color: #92400e;
+        }
+
+        .question-index-btn.is-correct {
+            background-color: #bbf7d0;
+            border-color: #16a34a;
+            color: #166534;
+        }
+
+        .question-index-btn.is-incorrect {
+            background-color: #fecaca;
+            border-color: #ef4444;
+            color: #991b1b;
+        }
+
+        #standalone-nav {
+            margin-bottom: 1rem;
+        }
+
+        #standalone-nav a {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background-color: #0f172a;
+            color: #ffffff;
+            padding: 0.65rem 1rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background-color 0.2s ease;
+        }
+
+        #standalone-nav a:hover {
+            background-color: #1e293b;
+        }
+
         /* סגנון לכפתור תשובה שנבחר */
         .selected-option {
             background-color: #dbeafe; /* bg-blue-100 */
@@ -55,6 +143,20 @@
         <div class="flex justify-between items-center mb-6 pb-4 border-b">
             <h1 class="text-2xl md:text-3xl font-bold text-gray-800">מבחן: שאלות אמריקאיות</h1>
             <div id="question-counter" class="text-lg font-semibold text-gray-600 bg-gray-100 px-3 py-1 rounded-full"></div>
+        </div>
+
+        <div id="standalone-nav" class="hidden">
+            <a href="index.html" aria-label="חזרה לתפריט הראשי">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+                חזרה לתפריט הראשי
+            </a>
+        </div>
+
+        <div class="question-index-wrapper" aria-label="ניווט מהיר בין השאלות">
+            <h2>ניווט מהיר בין השאלות</h2>
+            <div id="question-index" class="question-index-container" role="navigation"></div>
         </div>
 
         <!-- אזור השאלה -->
@@ -807,7 +909,6 @@
 
         let currentQuestionIndex = 0;
         let selectedAnswer = null;
-        let score = 0;
 
         // רכיבי DOM
         const quizContainer = document.getElementById('quiz-container');
@@ -821,63 +922,223 @@
         const scoreDisplay = document.getElementById('score-display');
         const explanationContainer = document.getElementById('explanation-container');
         const explanationText = document.getElementById('explanation-text');
+        const questionIndexContainer = document.getElementById('question-index');
+        const standaloneNav = document.getElementById('standalone-nav');
 
+        const STORAGE_KEY = 'american_quiz_state_v1';
+        let questionStates = [];
 
-        // אתחול הבוחן
-        document.addEventListener('DOMContentLoaded', startQuiz);
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.self === window.top) {
+                standaloneNav.classList.remove('hidden');
+            }
+            startQuiz();
+        });
 
-        function startQuiz() {
-            currentQuestionIndex = 0;
-            score = 0;
-            quizContainer.classList.remove('hidden');
-            completionScreen.classList.add('hidden');
-            loadQuestion();
-        }
-
-        function loadQuestion() {
-            // איפוס מצבים
-            selectedAnswer = null;
-            errorMessage.classList.add('hidden');
-            optionsContainer.innerHTML = '';
-            explanationContainer.classList.add('hidden'); // הסתר הסבר קודם
-            explanationText.textContent = '';
-            
-            if (currentQuestionIndex < quizData.length) {
-                const question = quizData[currentQuestionIndex];
-                
-                // טעינת טקסט השאלה והמונה
-                questionText.textContent = `${currentQuestionIndex + 1}. ${question.q}`;
-                questionCounter.textContent = `שאלה ${currentQuestionIndex + 1} / ${quizData.length}`;
-                
-                // יצירת כפתורי אפשרויות
-                for (const key in question.o) {
-                    const optionText = question.o[key];
-                    const button = document.createElement('button');
-                    button.classList.add('option-btn', 'w-full', 'text-right', 'p-3', 'border', 'border-gray-300', 'rounded-lg', 'hover:bg-gray-100', 'text-gray-700', 'rtl:text-right', 'ltr:text-left');
-                    button.innerHTML = `<span class="font-bold ml-2">${key}.</span> ${optionText}`;
-                    button.onclick = () => selectAnswer(button, key);
-                    optionsContainer.appendChild(button);
+        function loadSavedState() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (!stored) {
+                    return null;
                 }
-                
-                // איפוס כפתורי ניווט
-                submitBtn.classList.remove('hidden');
-                nextBtn.classList.add('hidden');
 
-            } else {
-                // סיום הבוחן
-                showCompletionScreen();
+                const parsed = JSON.parse(stored);
+                if (!Array.isArray(parsed.questionStates) || parsed.questionStates.length !== quizData.length) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    return null;
+                }
+
+                const sanitizedStates = parsed.questionStates.map(state => ({
+                    selected: typeof state?.selected === 'string' ? state.selected : null,
+                    checked: Boolean(state?.checked),
+                    correct: Boolean(state?.correct)
+                }));
+
+                const savedIndex = Number.isInteger(parsed.currentQuestionIndex) ? parsed.currentQuestionIndex : 0;
+
+                return {
+                    questionStates: sanitizedStates,
+                    currentQuestionIndex: Math.min(Math.max(savedIndex, 0), quizData.length - 1),
+                    completed: Boolean(parsed.completed)
+                };
+            } catch (error) {
+                console.warn('Failed to load saved quiz state', error);
+                return null;
             }
         }
 
+        function saveState(extra = {}) {
+            try {
+                const payload = {
+                    questionStates,
+                    currentQuestionIndex,
+                    completed: extra.completed !== undefined ? extra.completed : !completionScreen.classList.contains('hidden')
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+            } catch (error) {
+                console.warn('Failed to save quiz state', error);
+            }
+        }
+
+        function clearSavedState() {
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+            } catch (error) {
+                console.warn('Failed to clear quiz state', error);
+            }
+        }
+
+        function renderQuestionIndex() {
+            questionIndexContainer.innerHTML = '';
+            quizData.forEach((_, index) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = index + 1;
+                button.className = 'question-index-btn';
+                button.addEventListener('click', () => goToQuestion(index));
+                questionIndexContainer.appendChild(button);
+            });
+        }
+
+        function updateQuestionIndex() {
+            const buttons = questionIndexContainer.querySelectorAll('button');
+            buttons.forEach((btn, idx) => {
+                btn.classList.remove('is-active', 'is-in-progress', 'is-correct', 'is-incorrect');
+                if (idx === currentQuestionIndex) {
+                    btn.classList.add('is-active');
+                }
+                const state = questionStates[idx];
+                if (!state) {
+                    return;
+                }
+                if (state.checked) {
+                    btn.classList.add(state.correct ? 'is-correct' : 'is-incorrect');
+                } else if (state.selected) {
+                    btn.classList.add('is-in-progress');
+                }
+            });
+        }
+
+        function goToQuestion(index) {
+            currentQuestionIndex = index;
+            loadQuestion();
+        }
+
+        function startQuiz(reset = false) {
+            selectedAnswer = null;
+            let savedState = null;
+            if (!reset) {
+                savedState = loadSavedState();
+            }
+
+            if (savedState) {
+                questionStates = savedState.questionStates;
+                currentQuestionIndex = savedState.currentQuestionIndex;
+                selectedAnswer = questionStates[currentQuestionIndex]?.selected || null;
+                renderQuestionIndex();
+                if (savedState.completed) {
+                    showCompletionScreen();
+                } else {
+                    quizContainer.classList.remove('hidden');
+                    completionScreen.classList.add('hidden');
+                    loadQuestion();
+                }
+                return;
+            }
+
+            currentQuestionIndex = 0;
+            questionStates = quizData.map(() => ({ selected: null, checked: false, correct: false }));
+            quizContainer.classList.remove('hidden');
+            completionScreen.classList.add('hidden');
+            renderQuestionIndex();
+            loadQuestion();
+            saveState();
+        }
+
+        function loadQuestion() {
+            updateQuestionIndex();
+            errorMessage.classList.add('hidden');
+            optionsContainer.innerHTML = '';
+            explanationContainer.classList.add('hidden');
+            explanationText.textContent = '';
+
+            if (currentQuestionIndex >= quizData.length) {
+                showCompletionScreen();
+                return;
+            }
+
+            const question = quizData[currentQuestionIndex];
+            const state = questionStates[currentQuestionIndex];
+
+            questionText.textContent = `${currentQuestionIndex + 1}. ${question.q}`;
+            questionCounter.textContent = `שאלה ${currentQuestionIndex + 1} / ${quizData.length}`;
+
+            for (const key in question.o) {
+                const optionText = question.o[key];
+                const button = document.createElement('button');
+                button.classList.add('option-btn', 'w-full', 'text-right', 'p-3', 'border', 'border-gray-300', 'rounded-lg', 'hover:bg-gray-100', 'text-gray-700', 'rtl:text-right', 'ltr:text-left');
+                button.type = 'button';
+                button.innerHTML = `<span class="font-bold ml-2">${key}.</span> ${optionText}`;
+                button.onclick = () => selectAnswer(button, key);
+                if (state.selected === key) {
+                    button.classList.add('selected-option');
+                }
+                optionsContainer.appendChild(button);
+            }
+
+            if (state.checked) {
+                applyCheckedState(state);
+            } else {
+                submitBtn.classList.remove('hidden');
+                nextBtn.classList.add('hidden');
+                selectedAnswer = state.selected;
+            }
+
+            saveState();
+        }
+
+        function applyCheckedState(state) {
+            const question = quizData[currentQuestionIndex];
+            const correctOptionKey = question.a;
+            const allOptions = optionsContainer.querySelectorAll('.option-btn');
+
+            allOptions.forEach(btn => {
+                const btnKey = btn.innerHTML.split('.')[0].replace('<span class="font-bold ml-2">', '');
+                btn.disabled = true;
+                btn.classList.remove('hover:bg-gray-100');
+                if (btnKey === state.selected) {
+                    btn.classList.add('selected-option');
+                }
+                if (btnKey === correctOptionKey) {
+                    btn.classList.add('correct-answer');
+                }
+                if (state.checked && !state.correct && btnKey === state.selected) {
+                    btn.classList.add('wrong-answer');
+                }
+            });
+
+            explanationText.textContent = question.exp;
+            explanationContainer.classList.remove('hidden');
+            submitBtn.classList.add('hidden');
+            nextBtn.classList.remove('hidden');
+            nextBtn.textContent = currentQuestionIndex === quizData.length - 1 ? 'סיום הבוחן' : 'השאלה הבאה';
+            selectedAnswer = state.selected;
+        }
+
         function selectAnswer(btnElement, key) {
-            // הסרת בחירה קודמת
             const allOptions = optionsContainer.querySelectorAll('.option-btn');
             allOptions.forEach(btn => btn.classList.remove('selected-option'));
-            
-            // הוספת בחירה חדשה
+
             btnElement.classList.add('selected-option');
             selectedAnswer = key;
             errorMessage.classList.add('hidden');
+
+            const state = questionStates[currentQuestionIndex];
+            state.selected = key;
+            state.checked = false;
+            state.correct = false;
+            updateQuestionIndex();
+            saveState();
         }
 
         function checkAnswer() {
@@ -888,71 +1149,38 @@
             }
 
             const question = quizData[currentQuestionIndex];
-            const allOptions = optionsContainer.querySelectorAll('.option-btn');
-            
-            // השבתת כל הכפתורים
-            allOptions.forEach(btn => {
-                btn.disabled = true;
-                btn.classList.remove('hover:bg-gray-100'); // הסר אפקט ריחוף
-            });
-            
-            // מצא את הכפתור הנכון
-            const correctOptionKey = question.a;
-            let correctButton = null;
-            let selectedButton = null;
+            const state = questionStates[currentQuestionIndex];
+            state.selected = selectedAnswer;
+            state.checked = true;
+            state.correct = selectedAnswer === question.a;
 
-            // מצא את הכפתורים וסמן אותם
-            allOptions.forEach(btn => {
-                const btnKey = btn.innerHTML.split('.')[0].replace('<span class="font-bold ml-2">', '');
-                if (btnKey === correctOptionKey) {
-                    correctButton = btn;
-                }
-                if (btnKey === selectedAnswer) {
-                    selectedButton = btn;
-                }
-            });
-
-            // סמן את התשובה הנכונה בירוק
-            if (correctButton) {
-                correctButton.classList.add('correct-answer');
-            }
-
-            // אם התשובה שנבחרה שגויה, סמן אותה באדום
-            if (selectedAnswer === correctOptionKey) {
-                score++; // הוסף נקודה
-            } else if (selectedButton) {
-                selectedButton.classList.add('wrong-answer');
-            }
-            
-            // הצג הסבר (השינוי המרכזי)
-            explanationText.textContent = question.exp;
-            explanationContainer.classList.remove('hidden');
-
-            // החלף כפתורי ניווט
-            submitBtn.classList.add('hidden');
-            nextBtn.classList.remove('hidden');
+            applyCheckedState(state);
+            updateQuestionIndex();
+            saveState();
         }
 
         function nextQuestion() {
-            currentQuestionIndex++;
-            loadQuestion();
-            // הפעל מחדש את הכפתורים
-            const allOptions = optionsContainer.querySelectorAll('.option-btn');
-            allOptions.forEach(btn => {
-                btn.disabled = false;
-                btn.classList.add('hover:bg-gray-100');
-            });
+            if (currentQuestionIndex < quizData.length - 1) {
+                currentQuestionIndex++;
+                loadQuestion();
+            } else {
+                showCompletionScreen();
+            }
         }
-        
+
         function showCompletionScreen() {
             quizContainer.classList.add('hidden');
             completionScreen.classList.remove('hidden');
-            const percentage = Math.round((score / quizData.length) * 100);
-            scoreDisplay.textContent = `הציון שלך: ${score} / ${quizData.length} (${percentage}%)`;
+            const correctCount = questionStates.filter(state => state.checked && state.correct).length;
+            const percentage = Math.round((correctCount / quizData.length) * 100);
+            scoreDisplay.textContent = `הציון שלך: ${correctCount} / ${quizData.length} (${percentage}%)`;
+            updateQuestionIndex();
+            saveState({ completed: true });
         }
 
         function restartQuiz() {
-            startQuiz();
+            clearSavedState();
+            startQuiz(true);
         }
 
     </script>

@@ -17,6 +17,88 @@
             font-family: 'Rubik', sans-serif;
         }
 
+        .question-index-wrapper {
+            background-color: #f1f5f9;
+            border: 1px solid #cbd5f5;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .question-index-wrapper h2 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 0.75rem;
+        }
+
+        .question-index-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            max-height: 10rem;
+            overflow-y: auto;
+            padding: 0.25rem;
+        }
+
+        .question-index-btn {
+            width: 2.75rem;
+            height: 2.75rem;
+            border-radius: 9999px;
+            border: 1px solid #cbd5f5;
+            background-color: #f8fafc;
+            color: #0f172a;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .question-index-btn:hover {
+            background-color: #e2e8f0;
+        }
+
+        .question-index-btn.is-active {
+            background-color: #1d4ed8;
+            border-color: #1e3a8a;
+            color: #ffffff;
+            box-shadow: 0 10px 18px -10px rgba(29, 78, 216, 0.6);
+        }
+
+        .question-index-btn.is-in-progress {
+            background-color: #fef3c7;
+            border-color: #f59e0b;
+            color: #92400e;
+        }
+
+        .question-index-btn.is-answered {
+            background-color: #bae6fd;
+            border-color: #0284c7;
+            color: #0c4a6e;
+        }
+
+        #standalone-nav {
+            margin-bottom: 1rem;
+        }
+
+        #standalone-nav a {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background-color: #0f172a;
+            color: #ffffff;
+            padding: 0.65rem 1rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background-color 0.2s ease;
+        }
+
+        #standalone-nav a:hover {
+            background-color: #1e293b;
+        }
+
         /* סגנון לספינר טעינה */
         .loader {
             border: 4px solid #f3f3f3;
@@ -46,6 +128,20 @@
         <div class="flex justify-between items-center mb-6 pb-4 border-b">
             <h1 class="text-2xl md:text-3xl font-bold text-gray-800">מבחן שאלות פתוחות במטאורולוגיה</h1>
             <div id="question-counter" class="text-lg font-semibold text-gray-600 bg-gray-100 px-3 py-1 rounded-full"></div>
+        </div>
+
+        <div id="standalone-nav" class="hidden">
+            <a href="index.html" aria-label="חזרה לתפריט הראשי">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+                חזרה לתפריט הראשי
+            </a>
+        </div>
+
+        <div class="question-index-wrapper" aria-label="ניווט מהיר בין השאלות">
+            <h2>ניווט מהיר בין השאלות</h2>
+            <div id="question-index" class="question-index-container" role="navigation"></div>
         </div>
 
         <!-- אזור השאלה -->
@@ -286,6 +382,7 @@
 
         let currentQuestionIndex = 0;
         let shuffledQuizData = [];
+        let isEvaluating = false;
 
         // רכיבי DOM
         const quizContainer = document.getElementById('quiz-container');
@@ -305,9 +402,128 @@
         const definitionEl = document.getElementById('definition');
         const explanationEl = document.getElementById('explanation');
         const tipEl = document.getElementById('tip');
+        const questionIndexContainer = document.getElementById('question-index');
+        const standaloneNav = document.getElementById('standalone-nav');
 
-        // אתחול הבוחן
-        document.addEventListener('DOMContentLoaded', startQuiz);
+        const STORAGE_KEY = 'open_quiz_state_v1';
+        let shuffledOrder = [];
+        let questionStates = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.self === window.top) {
+                standaloneNav.classList.remove('hidden');
+            }
+            startQuiz();
+        });
+
+        function createEmptyState() {
+            return { answer: '', feedback: '', showAnswer: false, status: 'unanswered' };
+        }
+
+        function loadSavedState() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (!stored) {
+                    return null;
+                }
+
+                const parsed = JSON.parse(stored);
+                if (!Array.isArray(parsed.order) || parsed.order.length !== quizData.length) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    return null;
+                }
+
+                if (!Array.isArray(parsed.questionStates) || parsed.questionStates.length !== quizData.length) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    return null;
+                }
+
+                if (!parsed.order.every(idx => Number.isInteger(idx) && idx >= 0 && idx < quizData.length)) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    return null;
+                }
+
+                const sanitizedStates = parsed.questionStates.map(state => ({
+                    answer: typeof state?.answer === 'string' ? state.answer : '',
+                    feedback: typeof state?.feedback === 'string' ? state.feedback : '',
+                    showAnswer: Boolean(state?.showAnswer),
+                    status: state?.status === 'done' ? 'done' : 'unanswered'
+                }));
+
+                const savedIndex = Number.isInteger(parsed.currentQuestionIndex) ? parsed.currentQuestionIndex : 0;
+
+                return {
+                    order: parsed.order.slice(),
+                    questionStates: sanitizedStates,
+                    currentQuestionIndex: Math.min(Math.max(savedIndex, 0), quizData.length - 1),
+                    completed: Boolean(parsed.completed)
+                };
+            } catch (error) {
+                console.warn('Failed to load saved quiz state', error);
+                return null;
+            }
+        }
+
+        function saveState(extra = {}) {
+            try {
+                const payload = {
+                    order: shuffledOrder,
+                    questionStates,
+                    currentQuestionIndex,
+                    completed: extra.completed !== undefined ? extra.completed : !completionScreen.classList.contains('hidden')
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+            } catch (error) {
+                console.warn('Failed to save quiz state', error);
+            }
+        }
+
+        function clearSavedState() {
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+            } catch (error) {
+                console.warn('Failed to clear quiz state', error);
+            }
+        }
+
+        function renderQuestionIndex() {
+            questionIndexContainer.innerHTML = '';
+            shuffledQuizData.forEach((_, index) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = index + 1;
+                button.className = 'question-index-btn';
+                button.addEventListener('click', () => goToQuestion(index));
+                questionIndexContainer.appendChild(button);
+            });
+        }
+
+        function updateQuestionIndex() {
+            const buttons = questionIndexContainer.querySelectorAll('button');
+            buttons.forEach((btn, idx) => {
+                btn.classList.remove('is-active', 'is-in-progress', 'is-answered');
+                if (idx === currentQuestionIndex) {
+                    btn.classList.add('is-active');
+                }
+                const state = questionStates[idx];
+                if (!state) {
+                    return;
+                }
+                if (state.status === 'done') {
+                    btn.classList.add('is-answered');
+                } else if (state.status === 'in-progress') {
+                    btn.classList.add('is-in-progress');
+                }
+            });
+        }
+
+        function goToQuestion(index) {
+            if (isEvaluating) {
+                return;
+            }
+            currentQuestionIndex = index;
+            loadQuestion();
+        }
 
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
@@ -317,49 +533,111 @@
             return array;
         }
 
-        function startQuiz() {
-            shuffledQuizData = shuffleArray([...quizData]);
+        function startQuiz(reset = false) {
+            let savedState = null;
+            if (!reset) {
+                savedState = loadSavedState();
+            }
+
+            if (savedState) {
+                shuffledOrder = savedState.order.slice();
+                shuffledQuizData = shuffledOrder.map(idx => quizData[idx]);
+                questionStates = savedState.questionStates;
+                currentQuestionIndex = savedState.currentQuestionIndex;
+                isEvaluating = false;
+                quizContainer.classList.toggle('hidden', savedState.completed);
+                completionScreen.classList.toggle('hidden', !savedState.completed);
+                renderQuestionIndex();
+                if (savedState.completed) {
+                    updateQuestionIndex();
+                    saveState({ completed: true });
+                } else {
+                    loadQuestion();
+                }
+                return;
+            }
+
+            shuffledOrder = shuffleArray(Array.from({ length: quizData.length }, (_, idx) => idx));
+            shuffledQuizData = shuffledOrder.map(idx => quizData[idx]);
+            questionStates = shuffledQuizData.map(() => createEmptyState());
             currentQuestionIndex = 0;
+            isEvaluating = false;
             quizContainer.classList.remove('hidden');
             completionScreen.classList.add('hidden');
+            renderQuestionIndex();
             loadQuestion();
+            saveState();
         }
 
         function loadQuestion() {
-            if (currentQuestionIndex < shuffledQuizData.length) {
-                const question = shuffledQuizData[currentQuestionIndex];
-                termEl.textContent = question.term;
-                questionCounter.textContent = `שאלה ${currentQuestionIndex + 1} / ${shuffledQuizData.length}`;
-                
-                // טעינת תתי-שאלות
-                subQuestionsEl.innerHTML = '';
-                question.questions.forEach(q => {
-                    const p = document.createElement('p');
-                    p.textContent = q;
-                    subQuestionsEl.appendChild(p);
-                });
+            updateQuestionIndex();
 
-                // איפוס מצב
-                userAnswerEl.value = '';
+            if (currentQuestionIndex >= shuffledQuizData.length) {
+                quizContainer.classList.add('hidden');
+                completionScreen.classList.remove('hidden');
+                saveState({ completed: true });
+                return;
+            }
+
+            const question = shuffledQuizData[currentQuestionIndex];
+            const state = questionStates[currentQuestionIndex];
+
+            termEl.textContent = question.term;
+            questionCounter.textContent = `שאלה ${currentQuestionIndex + 1} / ${shuffledQuizData.length}`;
+
+            subQuestionsEl.innerHTML = '';
+            question.questions.forEach(q => {
+                const p = document.createElement('p');
+                p.textContent = q;
+                subQuestionsEl.appendChild(p);
+            });
+
+            userAnswerEl.value = state.answer || '';
+            loader.classList.add('hidden');
+
+            if (state.status === 'done') {
+                userAnswerEl.disabled = true;
+                feedbackContainer.classList.remove('hidden');
+                feedbackEl.textContent = state.feedback;
+                submitBtn.classList.add('hidden');
+                submitBtn.disabled = false;
+                nextBtn.classList.remove('hidden');
+                nextBtn.textContent = currentQuestionIndex === shuffledQuizData.length - 1 ? 'סיום הבוחן' : 'השאלה הבאה';
+                correctAnswerContainer.classList.remove('hidden');
+                if (state.showAnswer) {
+                    correctAnswerEl.classList.remove('hidden');
+                    showAnswerBtn.textContent = 'הסתר תשובה מלאה';
+                    definitionEl.textContent = question.definition;
+                    explanationEl.textContent = question.explanation;
+                    tipEl.textContent = question.tip;
+                } else {
+                    correctAnswerEl.classList.add('hidden');
+                    showAnswerBtn.textContent = 'הצג תשובה מלאה';
+                }
+            } else {
                 userAnswerEl.disabled = false;
                 feedbackContainer.classList.add('hidden');
                 feedbackEl.textContent = '';
-                loader.classList.add('hidden');
                 submitBtn.classList.remove('hidden');
                 submitBtn.disabled = false;
                 nextBtn.classList.add('hidden');
                 correctAnswerContainer.classList.add('hidden');
                 correctAnswerEl.classList.add('hidden');
                 showAnswerBtn.textContent = 'הצג תשובה מלאה';
-
-            } else {
-                // סיום הבוחן
-                quizContainer.classList.add('hidden');
-                completionScreen.classList.remove('hidden');
+                if (state.status === 'in-progress') {
+                    feedbackContainer.classList.remove('hidden');
+                    feedbackEl.textContent = 'Gemini חושב על המשוב שלך...';
+                }
             }
+
+            saveState();
         }
 
         function submitAnswer() {
+            if (isEvaluating) {
+                return;
+            }
+
             const userAnswer = userAnswerEl.value;
             const correctDefinition = shuffledQuizData[currentQuestionIndex].definition;
 
@@ -371,37 +649,59 @@
                 return;
             }
 
-            // הצג טעינה
+            const state = questionStates[currentQuestionIndex];
+            state.answer = userAnswer;
+            state.feedback = '';
+            state.showAnswer = false;
+            state.status = 'in-progress';
+
+            isEvaluating = true;
+            updateQuestionIndex();
+            saveState();
+
             feedbackContainer.classList.remove('hidden');
             feedbackEl.textContent = 'Gemini חושב על המשוב שלך...';
-            feedbackEl.classList.remove('hidden');
             loader.classList.remove('hidden');
             submitBtn.disabled = true;
             userAnswerEl.disabled = true;
+            correctAnswerContainer.classList.add('hidden');
+            correctAnswerEl.classList.add('hidden');
+            showAnswerBtn.textContent = 'הצג תשובה מלאה';
 
-            // קריאה ל-Gemini
             checkWithGemini(userAnswer, correctDefinition);
         }
 
         function showAnswer() {
+            const state = questionStates[currentQuestionIndex];
             const isHidden = correctAnswerEl.classList.toggle('hidden');
+            state.showAnswer = !isHidden;
             showAnswerBtn.textContent = isHidden ? 'הצג תשובה מלאה' : 'הסתר תשובה מלאה';
-            
+
             if (!isHidden) {
                 const question = shuffledQuizData[currentQuestionIndex];
                 definitionEl.textContent = question.definition;
                 explanationEl.textContent = question.explanation;
                 tipEl.textContent = question.tip;
             }
+
+            saveState();
         }
 
         function nextQuestion() {
+            if (isEvaluating) {
+                return;
+            }
             currentQuestionIndex++;
             loadQuestion();
         }
 
         function restartQuiz() {
-            startQuiz();
+            if (isEvaluating) {
+                return;
+            }
+            clearSavedState();
+            shuffledOrder = [];
+            startQuiz(true);
         }
 
         // --- לוגיקת Gemini API ---
@@ -422,9 +722,10 @@
         }
 
         async function checkWithGemini(userAnswer, correctDefinition) {
+            const state = questionStates[currentQuestionIndex];
             // פרומפט מערכת מותאם לבקשת המשתמש (עד 3 משפטים)
             const systemPrompt = "אתה עוזר לי ללמוד מטאורולוגיה למבחן עם שאלות פתוחות. התשובה שלי היא תשובה חופשית. השווה את התשובה שלי לתשובת המודל שסיפקתי לך. תן לי משוב בונה בעברית, באורך מקסימלי של 3 משפטים. ציין מה חסר בתשובה שלי או מה לא מדויק, והאם הבנתי את העיקרון המרכזי. אם התשובה מצוינת, תן חיזוק חיובי.";
-            
+
             const userPrompt = `
                 השאלה: "${shuffledQuizData[currentQuestionIndex].term}"
                 תשובת המודל הנכונה: "${correctDefinition}"
@@ -467,7 +768,7 @@
 
                 if (text) {
                     loader.classList.add('hidden');
-                    feedbackEl.textContent = text.trim();
+                    state.feedback = text.trim();
                 } else {
                     let errorMsg = "לא הצלחתי לעבד את התשובה, אנא נסה שוב.";
                     const blockReason = candidate?.finishReason || result.promptFeedback?.blockReason;
@@ -479,18 +780,22 @@
                         errorMsg = "המודל לא החזיר תשובה. נסה/י שוב.";
                     }
                     loader.classList.add('hidden');
-                    feedbackEl.textContent = errorMsg;
+                    state.feedback = errorMsg;
                 }
-            
+
             } catch (error) {
                 console.error("Error calling Gemini API:", error);
                 loader.classList.add('hidden');
-                feedbackEl.textContent = "אירעה שגיאת רשת בבדיקת התשובה. אנא בדוק את התשובה המלאה.";
+                state.feedback = "אירעה שגיאת רשת בבדיקת התשובה. אנא בדוק את התשובה המלאה.";
             } finally {
-                // הצג כפתורים רלוונטיים
-                submitBtn.classList.add('hidden');
-                nextBtn.classList.remove('hidden');
-                correctAnswerContainer.classList.remove('hidden');
+                state.status = 'done';
+                isEvaluating = false;
+                feedbackContainer.classList.remove('hidden');
+                loader.classList.add('hidden');
+                submitBtn.disabled = false;
+                userAnswerEl.disabled = true;
+                updateQuestionIndex();
+                loadQuestion();
             }
         }
 
